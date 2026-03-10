@@ -285,7 +285,7 @@ export default function CRM() {
 
         /* TOPBAR mobile */
         .topbar{display:none;position:fixed;top:0;left:0;right:0;z-index:100;background:#080810;border-bottom:1px solid #1a1a24;padding:14px 16px;align-items:center;justify-content:space-between}
-        .hamburger{background:none;border:none;color:#c9a84c;font-size:22px;cursor:pointer;padding:2px 6px}
+        .bottomnav{display:none}
         .overlay{display:none;position:fixed;inset:0;background:#00000080;z-index:150}
         .drawer{position:fixed;left:0;top:0;bottom:0;width:240px;background:#080810;border-right:1px solid #1a1a24;z-index:200;transform:translateX(-100%);transition:transform .25s;padding:20px 12px;display:flex;flex-direction:column;gap:4px}
         .drawer.open{transform:translateX(0)}
@@ -296,12 +296,13 @@ export default function CRM() {
         .sidebar{width:210px;background:#080810;border-right:1px solid #1a1a24;padding:20px 10px;display:flex;flex-direction:column;gap:3px;flex-shrink:0;position:fixed;left:0;top:0;bottom:0;overflow-y:auto}
         .main-content{margin-left:210px;padding:26px 32px;min-height:100vh;max-width:100%;width:calc(100vw - 210px)}
 
+        .hamburger{background:none;border:none;color:#c9a84c;font-size:22px;cursor:pointer;padding:2px 6px}
         @media(max-width:768px){
           .sidebar{display:none}
           .topbar{display:flex}
-          .main-content{margin-left:0;width:100vw;padding:80px 16px 100px}
-          .overlay{display:block}
           .bottomnav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#080810;border-top:1px solid #1a1a24;z-index:100;padding:6px 0}
+          .overlay{display:block}
+          .main-content{margin-left:0;width:100vw;padding:80px 16px 100px}
           .bnav{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;cursor:pointer;color:#555;font-size:10px;border:none;background:none;transition:color .18s}
           .bnav.on{color:#c9a84c}
           .bnav span{font-size:20px}
