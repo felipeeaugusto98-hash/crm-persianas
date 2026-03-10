@@ -71,10 +71,7 @@ function extrairEmail(texto) {
 }
 
 const hoje = new Date().toLocaleDateString("pt-BR");
-const s = { fontFamily:"'Georgia', serif" };
-const dm = { fontFamily:"'Segoe UI', sans-serif" };
 
-// ── Gráfico de linha simples (SVG) ──
 function GraficoLinha({ visitas }) {
   const meses = useMemo(() => {
     const map = {};
@@ -83,63 +80,45 @@ function GraficoLinha({ visitas }) {
       const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
       const key = `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
       const label = d.toLocaleString('pt-BR',{month:'short'}).replace('.','');
-      map[key] = { label, receita: 0, visitas: 0 };
+      map[key] = { label, receita: 0 };
     }
     visitas.forEach(v => {
       if (!v.dataCriacao) return;
       const parts = v.dataCriacao.split('/');
       if (parts.length < 3) return;
       const key = `${parts[1]}/${parts[2]}`;
-      if (map[key]) {
-        map[key].visitas++;
-        if (v.status === 'fechado') map[key].receita += valorFinal(v);
-      }
+      if (map[key] && v.status === 'fechado') map[key].receita += valorFinal(v);
     });
     return Object.values(map);
   }, [visitas]);
 
-  const W = 480, H = 160, PAD = 36;
+  const W = 400, H = 140, PAD = 30;
   const maxR = Math.max(...meses.map(m => m.receita), META_MENSAL);
-  const pts = meses.map((m, i) => {
-    const x = PAD + (i / (meses.length-1)) * (W - PAD*2);
-    const y = PAD + (1 - m.receita/maxR) * (H - PAD*2);
-    return {x, y, ...m};
-  });
+  const pts = meses.map((m, i) => ({
+    x: PAD + (i / (meses.length-1)) * (W - PAD*2),
+    y: PAD + (1 - m.receita/maxR) * (H - PAD*2),
+    ...m
+  }));
   const path = pts.map((p,i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
   const metaY = PAD + (1 - META_MENSAL/maxR) * (H - PAD*2);
 
   return (
-    <div style={{...dm}}>
-      <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>📈 Evolução da Receita (6 meses)</div>
+    <div>
+      <div style={{fontFamily:"'Segoe UI',sans-serif",fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>📈 Receita Mensal</div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
-        {/* Grid */}
-        {[0,0.25,0.5,0.75,1].map(t => {
-          const y = PAD + t*(H-PAD*2);
-          return <line key={t} x1={PAD} y1={y} x2={W-PAD} y2={y} stroke="#1e1e28" strokeWidth="1"/>;
-        })}
-        {/* Meta line */}
-        {META_MENSAL <= maxR && (
-          <>
-            <line x1={PAD} y1={metaY} x2={W-PAD} y2={metaY} stroke="#c9a84c" strokeWidth="1" strokeDasharray="4,3"/>
-            <text x={W-PAD+4} y={metaY+4} fill="#c9a84c" fontSize="9">meta</text>
-          </>
-        )}
-        {/* Area fill */}
-        <defs>
-          <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0"/>
-          </linearGradient>
-        </defs>
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.25"/><stop offset="100%" stopColor="#10b981" stopOpacity="0"/></linearGradient></defs>
+        {[0,0.5,1].map(t => <line key={t} x1={PAD} y1={PAD+t*(H-PAD*2)} x2={W-PAD} y2={PAD+t*(H-PAD*2)} stroke="#1e1e28" strokeWidth="1"/>)}
+        {META_MENSAL<=maxR && <>
+          <line x1={PAD} y1={metaY} x2={W-PAD} y2={metaY} stroke="#c9a84c" strokeWidth="1" strokeDasharray="4,3"/>
+          <text x={W-PAD+3} y={metaY+4} fill="#c9a84c" fontSize="8">meta</text>
+        </>}
         <path d={`${path} L${pts[pts.length-1].x},${H-PAD} L${pts[0].x},${H-PAD} Z`} fill="url(#lg)"/>
-        {/* Line */}
         <path d={path} fill="none" stroke="#10b981" strokeWidth="2" strokeLinejoin="round"/>
-        {/* Dots + labels */}
         {pts.map((p,i) => (
           <g key={i}>
-            <circle cx={p.x} cy={p.y} r="4" fill="#10b981" stroke="#0a0a0f" strokeWidth="2"/>
-            <text x={p.x} y={H-8} fill="#555" fontSize="9" textAnchor="middle">{p.label}</text>
-            {p.receita > 0 && <text x={p.x} y={p.y-8} fill="#10b981" fontSize="8" textAnchor="middle">{(p.receita/1000).toFixed(0)}k</text>}
+            <circle cx={p.x} cy={p.y} r="3.5" fill="#10b981" stroke="#0a0a0f" strokeWidth="2"/>
+            <text x={p.x} y={H-4} fill="#555" fontSize="8" textAnchor="middle">{p.label}</text>
+            {p.receita>0 && <text x={p.x} y={p.y-7} fill="#10b981" fontSize="7" textAnchor="middle">{(p.receita/1000).toFixed(0)}k</text>}
           </g>
         ))}
       </svg>
@@ -147,65 +126,49 @@ function GraficoLinha({ visitas }) {
   );
 }
 
-// ── Funil de conversão ──
 function Funil({ visitas }) {
   const etapas = [
-    { label: "Total de Leads", key: null, color: "#3b82f6" },
-    { label: "Visita Realizada", key: "visitado", color: "#f59e0b" },
-    { label: "Orçamento Enviado", key: "orcamento_enviado", color: "#8b5cf6" },
-    { label: "Fechado", key: "fechado", color: "#10b981" },
+    {label:"Leads",key:null,color:"#3b82f6"},
+    {label:"Visitado",key:"visitado",color:"#f59e0b"},
+    {label:"Orçamento",key:"orcamento_enviado",color:"#8b5cf6"},
+    {label:"Fechado",key:"fechado",color:"#10b981"},
   ];
-  const counts = etapas.map(e => e.key === null ? visitas.length : visitas.filter(v => v.status === e.key).length);
-  const max = Math.max(counts[0], 1);
-
+  const counts = etapas.map(e => e.key===null ? visitas.length : visitas.filter(v=>v.status===e.key).length);
+  const max = Math.max(counts[0],1);
   return (
-    <div style={{...dm}}>
-      <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>🔽 Funil de Conversão</div>
-      {etapas.map((e, i) => {
-        const pct = Math.round((counts[i]/max)*100);
-        const conv = i > 0 && counts[i-1] > 0 ? Math.round((counts[i]/counts[i-1])*100) : null;
-        return (
-          <div key={i} style={{marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontSize:12,color:"#aaa"}}>{e.label}</span>
-              <span style={{fontSize:12,color:e.color,fontWeight:600}}>
-                {counts[i]} {conv !== null && <span style={{fontSize:10,color:"#555",fontWeight:400}}>({conv}% da etapa anterior)</span>}
-              </span>
-            </div>
-            <div style={{background:"#1a1a24",borderRadius:4,height:8,overflow:"hidden"}}>
-              <div style={{width:`${pct}%`,height:"100%",background:e.color,borderRadius:4,transition:"width 0.6s ease"}}/>
-            </div>
+    <div>
+      <div style={{fontFamily:"'Segoe UI',sans-serif",fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>🔽 Funil de Conversão</div>
+      {etapas.map((e,i) => (
+        <div key={i} style={{marginBottom:9}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontFamily:"'Segoe UI',sans-serif"}}>
+            <span style={{fontSize:11,color:"#aaa"}}>{e.label}</span>
+            <span style={{fontSize:12,color:e.color,fontWeight:600}}>{counts[i]}{i>0&&counts[i-1]>0&&<span style={{fontSize:9,color:"#555",fontWeight:400}}> ({Math.round(counts[i]/counts[i-1]*100)}%)</span>}</span>
           </div>
-        );
-      })}
+          <div style={{background:"#1a1a24",borderRadius:4,height:6}}>
+            <div style={{width:`${Math.round(counts[i]/max*100)}%`,height:"100%",background:e.color,borderRadius:4,transition:"width .6s"}}/>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
-// ── Medidor de meta (arco SVG) ──
 function MedidorMeta({ receita }) {
-  const pct = Math.min(receita / META_MENSAL, 1);
-  const R = 60, cx = 80, cy = 75;
-  const startAngle = Math.PI;
-  const endAngle = startAngle + pct * Math.PI;
-  const x1 = cx + R * Math.cos(startAngle), y1 = cy + R * Math.sin(startAngle);
-  const x2 = cx + R * Math.cos(endAngle), y2 = cy + R * Math.sin(endAngle);
-  const large = pct > 0.5 ? 1 : 0;
-  const cor = pct >= 1 ? "#10b981" : pct >= 0.6 ? "#c9a84c" : "#ef4444";
-
+  const pct = Math.min(receita/META_MENSAL,1);
+  const R=55,cx=70,cy=65;
+  const x2=cx+R*Math.cos(Math.PI+pct*Math.PI), y2=cy+R*Math.sin(Math.PI+pct*Math.PI);
+  const cor = pct>=1?"#10b981":pct>=0.6?"#c9a84c":"#ef4444";
   return (
-    <div style={{...dm, textAlign:"center"}}>
-      <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>🎯 Meta do Mês</div>
-      <svg width="160" height="90" viewBox="0 0 160 90">
-        <path d={`M ${cx-R} ${cy} A ${R} ${R} 0 0 1 ${cx+R} ${cy}`} fill="none" stroke="#1e1e28" strokeWidth="10" strokeLinecap="round"/>
-        {pct > 0 && <path d={`M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2}`} fill="none" stroke={cor} strokeWidth="10" strokeLinecap="round"/>}
-        <text x={cx} y={cy-10} textAnchor="middle" fill={cor} fontSize="16" fontWeight="bold">{Math.round(pct*100)}%</text>
-        <text x={cx} y={cy+6} textAnchor="middle" fill="#555" fontSize="8">da meta</text>
-        <text x={20} y={cy+18} fill="#444" fontSize="8">R$0</text>
-        <text x={cx+R-10} y={cy+18} fill="#444" fontSize="8">150k</text>
+    <div style={{textAlign:"center",fontFamily:"'Segoe UI',sans-serif"}}>
+      <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>🎯 Meta Mensal</div>
+      <svg width="140" height="80" viewBox="0 0 140 80">
+        <path d={`M ${cx-R} ${cy} A ${R} ${R} 0 0 1 ${cx+R} ${cy}`} fill="none" stroke="#1e1e28" strokeWidth="9" strokeLinecap="round"/>
+        {pct>0&&<path d={`M ${cx-R} ${cy} A ${R} ${R} 0 ${pct>0.5?1:0} 1 ${x2} ${y2}`} fill="none" stroke={cor} strokeWidth="9" strokeLinecap="round"/>}
+        <text x={cx} y={cy-8} textAnchor="middle" fill={cor} fontSize="15" fontWeight="bold">{Math.round(pct*100)}%</text>
+        <text x={cx} y={cy+5} textAnchor="middle" fill="#555" fontSize="7">da meta</text>
       </svg>
-      <div style={{fontSize:13,color:cor,fontWeight:600,marginTop:-8}}>{fmt(receita)}</div>
-      <div style={{fontSize:11,color:"#444",marginTop:2}}>faltam {fmt(Math.max(META_MENSAL-receita,0))}</div>
+      <div style={{fontSize:12,color:cor,fontWeight:600,marginTop:-6}}>{fmt(receita)}</div>
+      <div style={{fontSize:10,color:"#444",marginTop:2}}>faltam {fmt(Math.max(META_MENSAL-receita,0))}</div>
     </div>
   );
 }
@@ -215,6 +178,7 @@ export default function CRM() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState("dashboard");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({...empty});
   const [nota, setNota] = useState("");
@@ -244,19 +208,19 @@ export default function CRM() {
   }, [visitas]);
 
   const filtradas = useMemo(() => visitas.filter(v => {
-    const s1 = filtro==="todos" || v.status===filtro;
-    const s2 = search==="" || v.cliente?.toLowerCase().includes(search.toLowerCase()) || v.telefone?.includes(search);
+    const s1=filtro==="todos"||v.status===filtro;
+    const s2=search===""||v.cliente?.toLowerCase().includes(search.toLowerCase())||v.telefone?.includes(search);
     return s1&&s2;
   }), [visitas, filtro, search]);
 
   const salvar = async () => {
     if (!form.cliente) return;
     setSaving(true);
-    const log = { data: hoje, texto: form.id ? "Dados atualizados" : "Visita cadastrada" };
-    const historico = [...(form.historico||[]), log];
+    const log={data:hoje,texto:form.id?"Dados atualizados":"Visita cadastrada"};
+    const historico=[...(form.historico||[]),log];
     try {
-      if (form.id) await db.update(form.id, {...form, historico});
-      else await db.insert({...form, historico, dataCriacao: hoje});
+      if (form.id) await db.update(form.id,{...form,historico});
+      else await db.insert({...form,historico,dataCriacao:hoje});
       await carregar(); setView("lista");
     } catch(e) { console.error(e); }
     setSaving(false);
@@ -269,65 +233,120 @@ export default function CRM() {
 
   const addNota = async () => {
     if (!nota.trim()||!selected) return;
-    const historico = [{data:hoje,texto:nota}, ...(selected.historico||[])];
-    await db.update(selected.id, {...selected, historico});
-    const att = {...selected, historico};
+    const historico=[{data:hoje,texto:nota},...(selected.historico||[])];
+    await db.update(selected.id,{...selected,historico});
+    const att={...selected,historico};
     setVisitas(visitas.map(v=>v.id===selected.id?att:v));
     setSelected(att); setNota("");
   };
 
   const mudarStatus = async (novoStatus) => {
-    const log = {data:hoje, texto:`Status: ${STATUS[novoStatus].label}`};
-    const historico = [log, ...(selected.historico||[])];
-    await db.update(selected.id, {...selected, status:novoStatus, historico});
-    const att = {...selected, status:novoStatus, historico};
+    const log={data:hoje,texto:`Status: ${STATUS[novoStatus].label}`};
+    const historico=[log,...(selected.historico||[])];
+    await db.update(selected.id,{...selected,status:novoStatus,historico});
+    const att={...selected,status:novoStatus,historico};
     setVisitas(visitas.map(v=>v.id===selected.id?att:v));
     setSelected(att);
   };
 
-  const Field = ({label, value, color}) => (
-    <div style={{padding:"8px 0", borderBottom:"1px solid #1e1e28"}}>
-      <div style={{...dm, fontSize:10, color:"#555", textTransform:"uppercase", letterSpacing:"1px", marginBottom:3}}>{label}</div>
-      <div style={{...dm, fontSize:13, color:color||"#ccc"}}>{value||<span style={{color:"#444"}}>—</span>}</div>
+  const navTo = (v) => { setView(v); setMenuOpen(false); };
+
+  const Field = ({label,value,color}) => (
+    <div style={{padding:"8px 0",borderBottom:"1px solid #1e1e28"}}>
+      <div style={{fontFamily:"'Segoe UI',sans-serif",fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>{label}</div>
+      <div style={{fontFamily:"'Segoe UI',sans-serif",fontSize:13,color:color||"#ccc"}}>{value||<span style={{color:"#444"}}>—</span>}</div>
     </div>
   );
 
   if (loading) return (
-    <div style={{background:"#0a0a0f",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",...dm,color:"#c9a84c",fontSize:16}}>
-      Conectando... ⏳
+    <div style={{background:"#0a0a0f",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',sans-serif",color:"#c9a84c",fontSize:16}}>
+      Carregando... ⏳
     </div>
   );
 
   return (
-    <div style={{...s, minHeight:"100vh", background:"#0a0a0f", color:"#e8e4dc", display:"flex"}}>
+    <div style={{minHeight:"100vh",background:"#0a0a0f",color:"#e8e4dc",fontFamily:"'Segoe UI',sans-serif"}}>
       <style>{`
         *{box-sizing:border-box;margin:0;padding:0}
-        .btn{cursor:pointer;border:none;border-radius:6px;font-family:'Segoe UI',sans-serif;font-size:13px;font-weight:500;transition:all .18s}
-        .bp{background:#c9a84c;color:#0a0a0f;padding:9px 18px}.bp:hover{background:#e0bf6a}.bp:disabled{opacity:.5;cursor:not-allowed}
-        .bg{background:transparent;color:#888;padding:8px 14px;border:1px solid #2a2a35}.bg:hover{background:#1e1e2a;color:#e8e4dc}
-        .bd{background:transparent;color:#ef4444;padding:8px 14px;border:1px solid #ef444440}.bd:hover{background:#ef444415}
-        .inp{background:#15151f;border:1px solid #2a2a38;border-radius:7px;color:#e8e4dc;padding:9px 12px;font-family:'Segoe UI',sans-serif;font-size:13px;width:100%;outline:none;transition:border .2s}
+        .btn{cursor:pointer;border:none;border-radius:8px;font-family:'Segoe UI',sans-serif;font-size:14px;font-weight:500;transition:all .18s}
+        .bp{background:#c9a84c;color:#0a0a0f;padding:10px 20px}.bp:hover{background:#e0bf6a}.bp:disabled{opacity:.5;cursor:not-allowed}
+        .bg{background:transparent;color:#888;padding:9px 16px;border:1px solid #2a2a35}.bg:hover{background:#1e1e2a;color:#e8e4dc}
+        .bd{background:transparent;color:#ef4444;padding:9px 16px;border:1px solid #ef444440}.bd:hover{background:#ef444415}
+        .inp{background:#15151f;border:1px solid #2a2a38;border-radius:8px;color:#e8e4dc;padding:11px 14px;font-family:'Segoe UI',sans-serif;font-size:14px;width:100%;outline:none;transition:border .2s}
         .inp:focus{border-color:#c9a84c}.inp::placeholder{color:#444}
-        .nav{cursor:pointer;padding:9px 12px;border-radius:7px;font-family:'Segoe UI',sans-serif;font-size:13px;transition:all .18s;color:#777;display:flex;align-items:center;gap:8px}
-        .nav:hover{background:#1a1a25;color:#e8e4dc}.nav.on{background:#c9a84c15;color:#c9a84c;border-left:2px solid #c9a84c}
-        .card{background:#12121a;border:1px solid #22222e;border-radius:10px}
-        .row{border-bottom:1px solid #1a1a24;padding:12px 16px;cursor:pointer;transition:background .15s;display:grid;gap:10px;align-items:center}
-        .row:hover{background:#16161f}
-        .tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
-        .sc{background:#12121a;border:1px solid #22222e;border-radius:10px;padding:18px;position:relative;overflow:hidden}
+        textarea.inp{min-height:100px;resize:vertical} select.inp{cursor:pointer}
+        .card{background:#12121a;border:1px solid #22222e;border-radius:12px}
+        .sc{background:#12121a;border:1px solid #22222e;border-radius:12px;padding:16px;position:relative;overflow:hidden}
         .sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#c9a84c,#e0bf6a)}
-        textarea.inp{min-height:80px;resize:vertical} select.inp{cursor:pointer}
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#0a0a0f}::-webkit-scrollbar-thumb{background:#2a2a3a;border-radius:2px}
-        .sb{cursor:pointer;border:1px solid #2a2a35;border-radius:6px;padding:7px 12px;font-family:'Segoe UI',sans-serif;font-size:12px;background:transparent;transition:all .15s}
+        .tag{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500}
+        .sb{cursor:pointer;border:1px solid #2a2a35;border-radius:8px;padding:8px 14px;font-family:'Segoe UI',sans-serif;font-size:12px;background:transparent;transition:all .15s;white-space:nowrap}
         .sb:hover{transform:translateY(-1px)}
-        .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#0a0a0f}::-webkit-scrollbar-thumb{background:#2a2a3a;border-radius:2px}
+
+        /* TOPBAR mobile */
+        .topbar{display:none;position:fixed;top:0;left:0;right:0;z-index:100;background:#080810;border-bottom:1px solid #1a1a24;padding:14px 16px;align-items:center;justify-content:space-between}
+        .hamburger{background:none;border:none;color:#c9a84c;font-size:22px;cursor:pointer;padding:2px 6px}
+        .overlay{display:none;position:fixed;inset:0;background:#00000080;z-index:150}
+        .drawer{position:fixed;left:0;top:0;bottom:0;width:240px;background:#080810;border-right:1px solid #1a1a24;z-index:200;transform:translateX(-100%);transition:transform .25s;padding:20px 12px;display:flex;flex-direction:column;gap:4px}
+        .drawer.open{transform:translateX(0)}
+        .nav{cursor:pointer;padding:11px 14px;border-radius:8px;font-size:14px;transition:all .18s;color:#777;display:flex;align-items:center;gap:10px}
+        .nav:hover{background:#1a1a25;color:#e8e4dc}.nav.on{background:#c9a84c15;color:#c9a84c;border-left:2px solid #c9a84c}
+
+        /* SIDEBAR desktop */
+        .sidebar{width:210px;background:#080810;border-right:1px solid #1a1a24;padding:20px 10px;display:flex;flex-direction:column;gap:3px;flex-shrink:0;position:fixed;left:0;top:0;bottom:0;overflow-y:auto}
+        .main-content{margin-left:210px;padding:26px 28px;min-height:100vh}
+
+        @media(max-width:768px){
+          .sidebar{display:none}
+          .topbar{display:flex}
+          .main-content{margin-left:0;padding:80px 16px 100px}
+          .overlay{display:block}
+          /* bottom nav */
+          .bottomnav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#080810;border-top:1px solid #1a1a24;z-index:100;padding:6px 0}
+          .bnav{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;cursor:pointer;color:#555;font-size:10px;border:none;background:none;transition:color .18s}
+          .bnav.on{color:#c9a84c}
+          .bnav span{font-size:20px}
+          /* grid helpers */
+          .grid-2col{grid-template-columns:1fr!important}
+          .grid-4col{grid-template-columns:1fr 1fr!important}
+          .graficos-grid{grid-template-columns:1fr!important}
+          .hide-mobile{display:none!important}
+          .card-row-mobile{grid-template-columns:1fr!important;gap:6px!important}
+        }
+        @media(min-width:769px){
+          .bottomnav{display:none}
+          .overlay{display:none!important}
+        }
       `}</style>
 
-      {/* SIDEBAR */}
-      <div style={{width:210,background:"#080810",borderRight:"1px solid #1a1a24",padding:"20px 10px",display:"flex",flexDirection:"column",gap:3,flexShrink:0}}>
+      {/* TOPBAR mobile */}
+      <div className="topbar">
+        <div style={{fontFamily:"Georgia,serif",fontSize:17,color:"#c9a84c",fontWeight:700}}>Persianas CRM</div>
+        <button className="hamburger" onClick={()=>setMenuOpen(!menuOpen)}>☰</button>
+      </div>
+
+      {/* OVERLAY + DRAWER mobile */}
+      {menuOpen && <div className="overlay" onClick={()=>setMenuOpen(false)}/>}
+      <div className={`drawer ${menuOpen?"open":""}`}>
+        <div style={{fontFamily:"Georgia,serif",fontSize:17,color:"#c9a84c",fontWeight:700,padding:"4px 8px 16px",borderBottom:"1px solid #1a1a24",marginBottom:8}}>Persianas CRM</div>
+        <div className={`nav ${view==="dashboard"?"on":""}`} onClick={()=>navTo("dashboard")}>▦ Dashboard</div>
+        <div className={`nav ${view==="lista"||view==="detalhe"?"on":""}`} onClick={()=>navTo("lista")}>📋 Visitas</div>
+        <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
+        <div style={{flex:1}}/>
+        <button className="btn bp" style={{width:"100%",padding:12,marginTop:16}} onClick={()=>navTo("novo")}>+ Nova Visita</button>
+        <div style={{marginTop:14,padding:"12px 8px",borderTop:"1px solid #1a1a24"}}>
+          <div style={{fontSize:10,color:"#444"}}>RECEITA DO MÊS</div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:15,color:"#10b981",marginTop:4}}>{fmt(stats.receita)}</div>
+          <div style={{fontSize:10,color:"#444",marginTop:6}}>META</div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:13,color:"#c9a84c",marginTop:3}}>{fmt(META_MENSAL)}</div>
+        </div>
+      </div>
+
+      {/* SIDEBAR desktop */}
+      <div className="sidebar">
         <div style={{padding:"4px 8px 20px",borderBottom:"1px solid #1a1a24",marginBottom:8}}>
-          <div style={{...s,fontSize:18,color:"#c9a84c",fontWeight:700}}>Persianas</div>
-          <div style={{...dm,fontSize:10,color:"#444",letterSpacing:"2px",textTransform:"uppercase"}}>CRM · Felipe P.</div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#c9a84c",fontWeight:700}}>Persianas</div>
+          <div style={{fontSize:10,color:"#444",letterSpacing:"2px",textTransform:"uppercase"}}>CRM · Felipe P.</div>
         </div>
         <div className={`nav ${view==="dashboard"?"on":""}`} onClick={()=>setView("dashboard")}>▦ Dashboard</div>
         <div className={`nav ${view==="lista"||view==="detalhe"?"on":""}`} onClick={()=>setView("lista")}>📋 Visitas</div>
@@ -335,77 +354,82 @@ export default function CRM() {
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:11}} onClick={()=>{setForm({...empty});setView("novo")}}>+ Nova Visita</button>
         <div style={{marginTop:14,padding:"12px 8px",borderTop:"1px solid #1a1a24"}}>
-          <div style={{...dm,fontSize:10,color:"#444"}}>RECEITA DO MÊS</div>
-          <div style={{...s,fontSize:16,color:"#10b981",marginTop:4}}>{fmt(stats.receita)}</div>
-          <div style={{...dm,fontSize:10,color:"#444",marginTop:8}}>META</div>
-          <div style={{...s,fontSize:14,color:"#c9a84c",marginTop:4}}>{fmt(META_MENSAL)}</div>
+          <div style={{fontSize:10,color:"#444"}}>RECEITA DO MÊS</div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:16,color:"#10b981",marginTop:4}}>{fmt(stats.receita)}</div>
+          <div style={{fontSize:10,color:"#444",marginTop:8}}>META</div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:14,color:"#c9a84c",marginTop:4}}>{fmt(META_MENSAL)}</div>
         </div>
       </div>
 
+      {/* BOTTOM NAV mobile */}
+      <div className="bottomnav">
+        {[{icon:"▦",label:"Dashboard",v:"dashboard"},{icon:"📋",label:"Visitas",v:"lista"},{icon:"✉",label:"Importar",v:"importar"},{icon:"＋",label:"Nova",v:"novo"}].map(b=>(
+          <button key={b.v} className={`bnav ${view===b.v?"on":""}`} onClick={()=>{if(b.v==="novo"){setForm({...empty});setView("novo")}else{setView(b.v)}}}>
+            <span>{b.icon}</span>{b.label}
+          </button>
+        ))}
+      </div>
+
       {/* MAIN */}
-      <div style={{flex:1,overflow:"auto",padding:"26px 28px"}}>
+      <div className="main-content">
 
         {/* DASHBOARD */}
         {view==="dashboard" && (
           <div>
-            <div style={{...s,fontSize:24,marginBottom:4}}>Bom dia, Felipe! 👋</div>
-            <div style={{...dm,fontSize:13,color:"#555",marginBottom:24}}>Resumo de hoje — {hoje}</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:3}}>Bom dia, Felipe! 👋</div>
+            <div style={{fontSize:12,color:"#555",marginBottom:20}}>{hoje}</div>
 
-            {/* KPIs */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}} className="grid-4col">
               {[
-                {label:"Visitas Hoje",value:stats.hoje,sub:"agendadas",color:"#3b82f6"},
-                {label:"Orçamentos Pendentes",value:stats.pendentes,sub:"aguardando resposta",color:"#8b5cf6"},
-                {label:"Taxa de Conversão",value:`${stats.conversao}%`,sub:`${stats.fechados} de ${stats.total} fechados`,color:"#c9a84c"},
-                {label:"Receita do Mês",value:fmt(stats.receita),sub:"negócios fechados",color:"#10b981"},
+                {label:"Visitas Hoje",value:stats.hoje,color:"#3b82f6"},
+                {label:"Pendentes",value:stats.pendentes,color:"#8b5cf6"},
+                {label:"Conversão",value:`${stats.conversao}%`,color:"#c9a84c"},
+                {label:"Receita",value:fmt(stats.receita),color:"#10b981"},
               ].map((st,i)=>(
                 <div key={i} className="sc">
-                  <div style={{...dm,fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>{st.label}</div>
-                  <div style={{...s,fontSize:i===3?18:26,color:st.color}}>{st.value}</div>
-                  <div style={{...dm,fontSize:11,color:"#444",marginTop:5}}>{st.sub}</div>
+                  <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>{st.label}</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:i===3?16:22,color:st.color}}>{st.value}</div>
                 </div>
               ))}
             </div>
 
-            {/* GRÁFICOS */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 200px",gap:14,marginBottom:20}}>
-              <div className="card" style={{padding:20}}>
-                <GraficoLinha visitas={visitas}/>
-              </div>
-              <div className="card" style={{padding:20}}>
-                <Funil visitas={visitas}/>
-              </div>
-              <div className="card" style={{padding:20,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <MedidorMeta receita={stats.receita}/>
-              </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 180px",gap:12,marginBottom:16}} className="graficos-grid">
+              <div className="card" style={{padding:16}}><GraficoLinha visitas={visitas}/></div>
+              <div className="card" style={{padding:16}}><Funil visitas={visitas}/></div>
+              <div className="card" style={{padding:16,display:"flex",alignItems:"center",justifyContent:"center"}}><MedidorMeta receita={stats.receita}/></div>
             </div>
 
-            {/* AGENDADAS */}
-            <div style={{...s,fontSize:17,marginBottom:12}}>📅 Agendadas</div>
-            <div className="card" style={{marginBottom:20}}>
-              {visitas.filter(v=>v.status==="agendado").length===0&&<div style={{padding:28,textAlign:"center",...dm,fontSize:13,color:"#444"}}>Nenhuma visita agendada</div>}
+            <div style={{fontFamily:"Georgia,serif",fontSize:16,marginBottom:10}}>📅 Agendadas</div>
+            <div className="card" style={{marginBottom:16}}>
+              {visitas.filter(v=>v.status==="agendado").length===0&&<div style={{padding:24,textAlign:"center",fontSize:13,color:"#444"}}>Nenhuma visita agendada</div>}
               {visitas.filter(v=>v.status==="agendado").map(v=>(
-                <div key={v.id} className="row" style={{gridTemplateColumns:"2fr 1.5fr 1fr 1fr 60px"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
-                  <div><div style={{...dm,fontSize:14,fontWeight:600}}>{v.cliente}</div><div style={{...dm,fontSize:11,color:"#555",marginTop:2}}>{v.endereco?.slice(0,40)}</div></div>
-                  <div style={{...dm,fontSize:12,color:"#777"}}>{v.dataVisita} às {v.horaVisita}</div>
-                  <div style={{...dm,fontSize:12,color:"#888"}}>{v.telefone}</div>
-                  <div style={{...dm,fontSize:11,color:"#3b82f6"}}>{v.ambiente}</div>
-                  <span className="tag" style={{background:STATUS[v.status]?.bg,color:STATUS[v.status]?.color}}>{STATUS[v.status]?.icon}</span>
+                <div key={v.id} style={{padding:"12px 16px",borderBottom:"1px solid #1a1a24",cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:600}}>{v.cliente}</div>
+                      <div style={{fontSize:11,color:"#555",marginTop:2}}>{v.dataVisita} às {v.horaVisita} · {v.ambiente}</div>
+                    </div>
+                    <span className="tag" style={{background:STATUS[v.status]?.bg,color:STATUS[v.status]?.color}}>{STATUS[v.status]?.icon}</span>
+                  </div>
                 </div>
               ))}
             </div>
 
-            {/* ORÇAMENTOS */}
-            <div style={{...s,fontSize:17,marginBottom:12}}>📋 Orçamentos Pendentes</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:16,marginBottom:10}}>📋 Orçamentos Pendentes</div>
             <div className="card">
-              {visitas.filter(v=>v.status==="orcamento_enviado").length===0&&<div style={{padding:28,textAlign:"center",...dm,fontSize:13,color:"#444"}}>Nenhum orçamento pendente</div>}
+              {visitas.filter(v=>v.status==="orcamento_enviado").length===0&&<div style={{padding:24,textAlign:"center",fontSize:13,color:"#444"}}>Nenhum pendente</div>}
               {visitas.filter(v=>v.status==="orcamento_enviado").map(v=>(
-                <div key={v.id} className="row" style={{gridTemplateColumns:"2fr 1fr 1fr 1fr 60px"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
-                  <div><div style={{...dm,fontSize:14,fontWeight:600}}>{v.cliente}</div><div style={{...dm,fontSize:11,color:"#555"}}>{v.produtos}</div></div>
-                  <div style={{...dm,fontSize:13,color:"#c9a84c"}}>{fmt(v.valorOrcamento)}</div>
-                  <div style={{...dm,fontSize:13,color:"#ef4444"}}>-{v.desconto||0}%</div>
-                  <div style={{...dm,fontSize:13,color:"#10b981",fontWeight:600}}>{fmt(valorFinal(v))}</div>
-                  <span className="tag" style={{background:STATUS[v.status]?.bg,color:STATUS[v.status]?.color}}>{STATUS[v.status]?.icon}</span>
+                <div key={v.id} style={{padding:"12px 16px",borderBottom:"1px solid #1a1a24",cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:600}}>{v.cliente}</div>
+                      <div style={{fontSize:11,color:"#555",marginTop:2}}>{v.produtos}</div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:13,color:"#10b981",fontWeight:600}}>{fmt(valorFinal(v))}</div>
+                      <div style={{fontSize:11,color:"#ef4444"}}>-{v.desconto||0}%</div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -415,34 +439,37 @@ export default function CRM() {
         {/* LISTA */}
         {view==="lista" && (
           <div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:20}}>
-              <div><div style={{...s,fontSize:24,marginBottom:3}}>Todas as Visitas</div><div style={{...dm,fontSize:13,color:"#555"}}>{filtradas.length} registros</div></div>
-              <div style={{display:"flex",gap:10}}>
-                <button className="btn bg" style={{color:"#818cf8",borderColor:"#6366f140"}} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar</button>
-                <button className="btn bp" onClick={()=>{setForm({...empty});setView("novo")}}>+ Nova Visita</button>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:2}}>Visitas</div>
+                <div style={{fontSize:12,color:"#555"}}>{filtradas.length} registros</div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button className="btn bg hide-mobile" style={{color:"#818cf8",borderColor:"#6366f140"}} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉</button>
+                <button className="btn bp" onClick={()=>{setForm({...empty});setView("novo")}}>+ Nova</button>
               </div>
             </div>
-            <div style={{display:"flex",gap:10,marginBottom:16}}>
-              <input className="inp" placeholder="Buscar cliente ou telefone..." value={search} onChange={e=>setSearch(e.target.value)} style={{maxWidth:240}}/>
-              <select className="inp" value={filtro} onChange={e=>setFiltro(e.target.value)} style={{maxWidth:200}}>
-                <option value="todos">Todos os status</option>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              <input className="inp" placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1}}/>
+              <select className="inp" value={filtro} onChange={e=>setFiltro(e.target.value)} style={{maxWidth:140}}>
+                <option value="todos">Todos</option>
                 {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
               </select>
             </div>
             <div className="card">
-              <div className="row" style={{cursor:"default",gridTemplateColumns:"2fr 1.2fr 1fr 1fr 80px"}}>
-                {["Cliente","Data da Visita","Orçamento","Valor Final","Status"].map(h=>(
-                  <div key={h} style={{...dm,fontSize:10,color:"#444",textTransform:"uppercase",letterSpacing:"1px"}}>{h}</div>
-                ))}
-              </div>
-              {filtradas.length===0&&<div style={{padding:36,textAlign:"center",color:"#444",...dm}}>Nenhum registro encontrado</div>}
+              {filtradas.length===0&&<div style={{padding:36,textAlign:"center",color:"#444"}}>Nenhum registro</div>}
               {filtradas.map(v=>(
-                <div key={v.id} className="row" style={{gridTemplateColumns:"2fr 1.2fr 1fr 1fr 80px"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
-                  <div><div style={{...dm,fontSize:13,fontWeight:600}}>{v.cliente}</div><div style={{...dm,fontSize:11,color:"#555"}}>{v.telefone} · {v.opId}</div></div>
-                  <div style={{...dm,fontSize:12,color:"#888"}}>{v.dataVisita} {v.horaVisita}</div>
-                  <div style={{...dm,fontSize:13,color:"#c9a84c"}}>{v.valorOrcamento?fmt(v.valorOrcamento):<span style={{color:"#444"}}>—</span>}</div>
-                  <div style={{...dm,fontSize:13,color:"#10b981",fontWeight:600}}>{v.valorOrcamento?fmt(valorFinal(v)):<span style={{color:"#444"}}>—</span>}</div>
-                  <span className="tag" style={{background:STATUS[v.status]?.bg,color:STATUS[v.status]?.color}}>{STATUS[v.status]?.icon}</span>
+                <div key={v.id} style={{padding:"13px 16px",borderBottom:"1px solid #1a1a24",cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:14,fontWeight:600}}>{v.cliente}</div>
+                      <div style={{fontSize:11,color:"#555",marginTop:2}}>{v.telefone} · {v.dataVisita}</div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0,marginLeft:10}}>
+                      <span className="tag" style={{background:STATUS[v.status]?.bg,color:STATUS[v.status]?.color}}>{STATUS[v.status]?.icon} {STATUS[v.status]?.label}</span>
+                      {v.valorOrcamento&&<div style={{fontSize:12,color:"#10b981",fontWeight:600}}>{fmt(valorFinal(v))}</div>}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -452,15 +479,19 @@ export default function CRM() {
         {/* DETALHE */}
         {view==="detalhe" && selected && (
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-              <button className="btn bg" onClick={()=>setView("lista")}>← Voltar</button>
-              <div style={{flex:1}}><div style={{...s,fontSize:22}}>{selected.cliente}</div><div style={{...dm,fontSize:12,color:"#555"}}>{selected.telefone} · {selected.dataCriacao}</div></div>
-              <button className="btn bg" onClick={()=>{setForm({...selected});setView("novo")}}>✎ Editar</button>
-              <button className="btn bd" onClick={()=>excluir(selected.id)}>✕ Excluir</button>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+              <button className="btn bg" onClick={()=>setView("lista")}>←</button>
+              <div style={{flex:1}}>
+                <div style={{fontFamily:"Georgia,serif",fontSize:20}}>{selected.cliente}</div>
+                <div style={{fontSize:11,color:"#555"}}>{selected.telefone} · {selected.dataCriacao}</div>
+              </div>
+              <button className="btn bg" onClick={()=>{setForm({...selected});setView("novo")}}>✎</button>
+              <button className="btn bd" onClick={()=>excluir(selected.id)}>✕</button>
             </div>
-            <div className="card" style={{padding:16,marginBottom:16}}>
-              <div style={{...dm,fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>Atualizar Status</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+
+            <div className="card" style={{padding:14,marginBottom:14}}>
+              <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>Status</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {Object.entries(STATUS).map(([k,v])=>(
                   <button key={k} className="sb" onClick={()=>mudarStatus(k)} style={{color:v.color,borderColor:selected.status===k?v.color:"#2a2a35",background:selected.status===k?v.bg:"transparent",fontWeight:selected.status===k?700:400}}>
                     {v.icon} {v.label}
@@ -468,42 +499,42 @@ export default function CRM() {
                 ))}
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-              <div className="card" style={{padding:18}}>
-                <div style={{...dm,fontSize:10,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>📅 Dados da Visita</div>
-                <Field label="Data e Horário" value={`${selected.dataVisita} às ${selected.horaVisita}`}/>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
+              <div className="card" style={{padding:16}}>
+                <div style={{fontSize:10,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>📅 Visita</div>
+                <Field label="Data/Hora" value={`${selected.dataVisita} às ${selected.horaVisita}`}/>
                 <Field label="Endereço" value={selected.endereco}/>
                 <Field label="Telefone" value={selected.telefone} color="#c9a84c"/>
-                <Field label="E-mail" value={selected.email}/>
                 <Field label="OP_ID" value={selected.opId}/>
               </div>
-              <div className="card" style={{padding:18}}>
-                <div style={{...dm,fontSize:10,color:"#10b981",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>💰 Orçamento</div>
-                <Field label="Valor do Orçamento" value={selected.valorOrcamento?fmt(selected.valorOrcamento):null} color="#c9a84c"/>
-                <Field label="Desconto" value={selected.desconto?`${selected.desconto}% — ${fmt(Number(selected.valorOrcamento)*Number(selected.desconto)/100)}`:null} color="#ef4444"/>
+              <div className="card" style={{padding:16}}>
+                <div style={{fontSize:10,color:"#10b981",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>💰 Orçamento</div>
+                <Field label="Valor" value={selected.valorOrcamento?fmt(selected.valorOrcamento):null} color="#c9a84c"/>
+                <Field label="Desconto" value={selected.desconto?`${selected.desconto}%`:null} color="#ef4444"/>
                 <Field label="Valor Final" value={selected.valorOrcamento?fmt(valorFinal(selected)):null} color="#10b981"/>
-                <Field label="Data de Instalação" value={selected.dataInstalacao} color="#8b5cf6"/>
+                <Field label="Instalação" value={selected.dataInstalacao} color="#8b5cf6"/>
               </div>
-              <div className="card" style={{padding:18}}>
-                <div style={{...dm,fontSize:10,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>🏠 Contexto</div>
+              <div className="card" style={{padding:16}}>
+                <div style={{fontSize:10,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>🏠 Contexto</div>
                 <Field label="Ambiente" value={selected.ambiente}/>
-                <Field label="Motivo da Compra" value={selected.motivoCompra}/>
-                <Field label="Urgência / Prazo" value={selected.urgencia}/>
-                <Field label="Produtos de Interesse" value={selected.produtos}/>
+                <Field label="Motivo" value={selected.motivoCompra}/>
+                <Field label="Urgência" value={selected.urgencia}/>
+                <Field label="Produtos" value={selected.produtos}/>
                 <Field label="Medidas" value={selected.medidas}/>
               </div>
-              <div className="card" style={{padding:18}}>
-                <div style={{...dm,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>📝 Anotações</div>
+              <div className="card" style={{padding:16}}>
+                <div style={{fontSize:10,color:"#8b5cf6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>📝 Anotações</div>
                 <div style={{display:"flex",gap:8,marginBottom:12}}>
-                  <input className="inp" placeholder="Nova anotação (Enter)..." value={nota} onChange={e=>setNota(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addNota()}/>
-                  <button className="btn bp" onClick={addNota} style={{whiteSpace:"nowrap",padding:"9px 14px"}}>+</button>
+                  <input className="inp" placeholder="Anotação (Enter)..." value={nota} onChange={e=>setNota(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addNota()}/>
+                  <button className="btn bp" onClick={addNota} style={{padding:"10px 14px",flexShrink:0}}>+</button>
                 </div>
-                <div style={{maxHeight:220,overflow:"auto"}}>
-                  {(selected.historico||[]).length===0&&<div style={{...dm,fontSize:13,color:"#444"}}>Sem anotações.</div>}
+                <div style={{maxHeight:200,overflow:"auto"}}>
+                  {(selected.historico||[]).length===0&&<div style={{fontSize:13,color:"#444"}}>Sem anotações.</div>}
                   {(selected.historico||[]).map((h,i)=>(
-                    <div key={i} style={{padding:"8px 0",borderBottom:"1px solid #1a1a24"}}>
-                      <div style={{...dm,fontSize:10,color:"#c9a84c",marginBottom:2}}>{h.data}</div>
-                      <div style={{...dm,fontSize:13,color:"#bbb"}}>{h.texto}</div>
+                    <div key={i} style={{padding:"7px 0",borderBottom:"1px solid #1a1a24"}}>
+                      <div style={{fontSize:10,color:"#c9a84c",marginBottom:2}}>{h.data}</div>
+                      <div style={{fontSize:13,color:"#bbb"}}>{h.texto}</div>
                     </div>
                   ))}
                 </div>
@@ -515,44 +546,47 @@ export default function CRM() {
         {/* IMPORTAR */}
         {view==="importar" && (
           <div style={{maxWidth:700}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:22}}>
-              <button className="btn bg" onClick={()=>setView("dashboard")}>← Voltar</button>
-              <div><div style={{...s,fontSize:22}}>✉ Importar Lead por E-mail</div><div style={{...dm,fontSize:13,color:"#555"}}>Cole o e-mail e extraímos tudo automaticamente</div></div>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+              <button className="btn bg" onClick={()=>setView("dashboard")}>←</button>
+              <div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:20}}>✉ Importar E-mail</div>
+                <div style={{fontSize:12,color:"#555"}}>Cole o e-mail para extrair os dados</div>
+              </div>
             </div>
-            {importStep==="colar" && (
-              <div className="card" style={{padding:24}}>
-                <textarea className="inp" style={{minHeight:240}} placeholder={"Cole aqui o e-mail...\n\nExemplo:\nOlá, Felipe P,\nData: 16/03/2026\nHorário: 13:00\nEndereço: Rua...\nTelefone: 11 99999-9999"} value={emailTexto} onChange={e=>setEmailTexto(e.target.value)}/>
-                <div style={{display:"flex",gap:10,marginTop:16}}>
+            {importStep==="colar"&&(
+              <div className="card" style={{padding:20}}>
+                <textarea className="inp" style={{minHeight:200}} placeholder={"Cole aqui o e-mail...\n\nExemplo:\nOlá, Felipe P,\nData: 16/03/2026\nHorário: 13:00\nEndereço: Rua..."} value={emailTexto} onChange={e=>setEmailTexto(e.target.value)}/>
+                <div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}>
                   <button className="btn bp" onClick={()=>{if(!emailTexto.trim())return;setForm({...empty,...extrairEmail(emailTexto)});setImportStep("revisar")}} disabled={!emailTexto.trim()}>✨ Extrair Dados</button>
-                  <button className="btn bg" onClick={()=>{setForm({...empty});setView("novo")}}>Preencher manualmente</button>
+                  <button className="btn bg" onClick={()=>{setForm({...empty});setView("novo")}}>Manual</button>
                 </div>
               </div>
             )}
-            {importStep==="revisar" && (
-              <div className="card" style={{padding:20,borderColor:"#3b82f640"}}>
-                <div style={{...dm,fontSize:11,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:16}}>✓ Revise os dados</div>
-                <div className="g2">
+            {importStep==="revisar"&&(
+              <div className="card" style={{padding:18,borderColor:"#3b82f640"}}>
+                <div style={{fontSize:11,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>✓ Revise os dados</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}} className="grid-2col">
                   {[{label:"Nome *",k:"cliente"},{label:"Telefone",k:"telefone"},{label:"Data",k:"dataVisita",ph:"DD/MM/AAAA"},{label:"Horário",k:"horaVisita",ph:"HH:MM"}].map(f=>(
-                    <div key={f.k} style={{marginBottom:11}}>
-                      <label style={{...dm,fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
+                    <div key={f.k} style={{marginBottom:10}}>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
                       <input className="inp" placeholder={f.ph||""} value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
                     </div>
                   ))}
-                  <div style={{marginBottom:11,gridColumn:"span 2"}}>
-                    <label style={{...dm,fontSize:11,color:"#777",display:"block",marginBottom:5}}>Endereço</label>
+                  <div style={{marginBottom:10,gridColumn:"span 2"}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Endereço</label>
                     <input className="inp" value={form.endereco} onChange={e=>setForm({...form,endereco:e.target.value})}/>
                   </div>
-                  <div style={{marginBottom:11}}>
-                    <label style={{...dm,fontSize:11,color:"#777",display:"block",marginBottom:5}}>Ambiente</label>
+                  <div style={{marginBottom:10}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Ambiente</label>
                     <input className="inp" value={form.ambiente} onChange={e=>setForm({...form,ambiente:e.target.value})}/>
                   </div>
-                  <div style={{marginBottom:11}}>
-                    <label style={{...dm,fontSize:11,color:"#777",display:"block",marginBottom:5}}>Motivo</label>
+                  <div style={{marginBottom:10}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Motivo</label>
                     <input className="inp" value={form.motivoCompra} onChange={e=>setForm({...form,motivoCompra:e.target.value})}/>
                   </div>
                 </div>
-                <div style={{display:"flex",gap:10}}>
-                  <button className="btn bp" onClick={salvar} disabled={!form.cliente||saving}>{saving?"Salvando...":"✓ Salvar no CRM"}</button>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                  <button className="btn bp" onClick={salvar} disabled={!form.cliente||saving}>{saving?"Salvando...":"✓ Salvar"}</button>
                   <button className="btn bg" onClick={()=>setImportStep("colar")}>← Voltar</button>
                 </div>
               </div>
@@ -561,56 +595,54 @@ export default function CRM() {
         )}
 
         {/* FORMULÁRIO */}
-        {view==="novo" && (
+        {view==="novo"&&(
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:22}}>
-              <button className="btn bg" onClick={()=>setView(form.id?"detalhe":"lista")}>← Voltar</button>
-              <div style={{...s,fontSize:22}}>{form.id?"Editar Visita":"Nova Visita"}</div>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+              <button className="btn bg" onClick={()=>setView(form.id?"detalhe":"lista")}>←</button>
+              <div style={{fontFamily:"Georgia,serif",fontSize:20}}>{form.id?"Editar":"Nova Visita"}</div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-              <div className="card" style={{padding:20}}>
-                <div style={{...dm,fontSize:10,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:16}}>📅 Dados da Visita</div>
-                <div className="g2">
-                  {[{label:"Nome *",k:"cliente",col:2},{label:"Telefone",k:"telefone",col:1},{label:"E-mail",k:"email",col:1},{label:"Data",k:"dataVisita",ph:"DD/MM/AAAA",col:1},{label:"Horário",k:"horaVisita",ph:"HH:MM",col:1},{label:"OP_ID",k:"opId",col:2},{label:"Endereço",k:"endereco",col:2}].map(f=>(
-                    <div key={f.k} style={{marginBottom:11,gridColumn:`span ${f.col}`}}>
-                      <label style={{...dm,fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
-                      <input className="inp" placeholder={f.ph||""} value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
-                    </div>
-                  ))}
-                </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}} className="grid-2col">
+              <div className="card" style={{padding:18}}>
+                <div style={{fontSize:10,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>📅 Dados da Visita</div>
+                {[{label:"Nome *",k:"cliente"},{label:"Telefone",k:"telefone"},{label:"E-mail",k:"email"},{label:"Data",k:"dataVisita",ph:"DD/MM/AAAA"},{label:"Horário",k:"horaVisita",ph:"HH:MM"},{label:"OP_ID",k:"opId"},{label:"Endereço",k:"endereco"}].map(f=>(
+                  <div key={f.k} style={{marginBottom:12}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
+                    <input className="inp" placeholder={f.ph||""} value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
+                  </div>
+                ))}
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:16}}>
-                <div className="card" style={{padding:20}}>
-                  <div style={{...dm,fontSize:10,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"1px",marginBottom:16}}>🏠 Contexto</div>
-                  {[{label:"Ambiente(s)",k:"ambiente"},{label:"Motivo da Compra",k:"motivoCompra"},{label:"Urgência",k:"urgencia"},{label:"Produtos",k:"produtos"},{label:"Medidas",k:"medidas"}].map(f=>(
-                    <div key={f.k} style={{marginBottom:11}}>
-                      <label style={{...dm,fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                <div className="card" style={{padding:18}}>
+                  <div style={{fontSize:10,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>🏠 Contexto</div>
+                  {[{label:"Ambiente(s)",k:"ambiente"},{label:"Motivo",k:"motivoCompra"},{label:"Urgência",k:"urgencia"},{label:"Produtos",k:"produtos"},{label:"Medidas",k:"medidas"}].map(f=>(
+                    <div key={f.k} style={{marginBottom:12}}>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
                       <input className="inp" value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
                     </div>
                   ))}
                 </div>
-                <div className="card" style={{padding:20}}>
-                  <div style={{...dm,fontSize:10,color:"#10b981",textTransform:"uppercase",letterSpacing:"1px",marginBottom:16}}>💰 Orçamento</div>
-                  <div className="g2">
-                    <div style={{marginBottom:11}}>
-                      <label style={{...dm,fontSize:11,color:"#777",display:"block",marginBottom:5}}>Valor (R$)</label>
+                <div className="card" style={{padding:18}}>
+                  <div style={{fontSize:10,color:"#10b981",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>💰 Orçamento</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Valor (R$)</label>
                       <input className="inp" type="number" value={form.valorOrcamento} onChange={e=>setForm({...form,valorOrcamento:e.target.value})}/>
                     </div>
-                    <div style={{marginBottom:11}}>
-                      <label style={{...dm,fontSize:11,color:"#777",display:"block",marginBottom:5}}>Desconto (%)</label>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Desconto (%)</label>
                       <input className="inp" type="number" value={form.desconto} onChange={e=>setForm({...form,desconto:e.target.value})}/>
                     </div>
                   </div>
-                  {form.valorOrcamento&&<div style={{background:"#10b98112",border:"1px solid #10b98130",borderRadius:8,padding:"10px 14px",marginBottom:11}}>
-                    <div style={{...dm,fontSize:11,color:"#777"}}>Valor Final:</div>
-                    <div style={{...s,fontSize:18,color:"#10b981"}}>{fmt(Number(form.valorOrcamento)-(Number(form.valorOrcamento)*Number(form.desconto||0))/100)}</div>
+                  {form.valorOrcamento&&<div style={{background:"#10b98112",border:"1px solid #10b98130",borderRadius:8,padding:"10px 14px",marginBottom:12}}>
+                    <div style={{fontSize:11,color:"#777"}}>Valor Final:</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#10b981"}}>{fmt(Number(form.valorOrcamento)-(Number(form.valorOrcamento)*Number(form.desconto||0))/100)}</div>
                   </div>}
-                  <div style={{marginBottom:11}}>
-                    <label style={{...dm,fontSize:11,color:"#777",display:"block",marginBottom:5}}>Data de Instalação</label>
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Data de Instalação</label>
                     <input className="inp" placeholder="DD/MM/AAAA" value={form.dataInstalacao} onChange={e=>setForm({...form,dataInstalacao:e.target.value})}/>
                   </div>
                   <div>
-                    <label style={{...dm,fontSize:11,color:"#777",display:"block",marginBottom:5}}>Status</label>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Status</label>
                     <select className="inp" value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>
                       {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
                     </select>
@@ -618,8 +650,8 @@ export default function CRM() {
                 </div>
               </div>
             </div>
-            <div style={{display:"flex",gap:10,marginTop:18}}>
-              <button className="btn bp" style={{padding:"11px 28px"}} onClick={salvar} disabled={saving}>{saving?"Salvando...":(form.id?"Salvar Alterações":"Cadastrar Visita")}</button>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              <button className="btn bp" style={{padding:"12px 28px"}} onClick={salvar} disabled={saving}>{saving?"Salvando...":(form.id?"Salvar":"Cadastrar Visita")}</button>
               <button className="btn bg" onClick={()=>setView(form.id?"detalhe":"lista")}>Cancelar</button>
             </div>
           </div>
