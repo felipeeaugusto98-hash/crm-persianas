@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 
 const SUPABASE_URL = "https://yoobeijjzzszltmhnsnr.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlvb2JlaWpqenpzemx0bWhuc25yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjg4NTMsImV4cCI6MjA4ODc0NDg1M30.ld-Nw95O56F9YMrDZob4mSKP6Je9vto7GaYvjOQ8jPo";
+const META_MENSAL = 150000;
 
 const db = {
   async get() {
@@ -10,14 +11,10 @@ const db = {
     });
     const data = await res.json();
     return data.map(v => ({
-      ...v,
-      historico: v.historico || [],
-      valorOrcamento: v.valor_orcamento,
-      dataVisita: v.data_visita,
-      horaVisita: v.hora_visita,
-      opId: v.op_id,
-      motivoCompra: v.motivo_compra,
-      dataInstalacao: v.data_instalacao,
+      ...v, historico: v.historico || [],
+      valorOrcamento: v.valor_orcamento, dataVisita: v.data_visita,
+      horaVisita: v.hora_visita, opId: v.op_id,
+      motivoCompra: v.motivo_compra, dataInstalacao: v.data_instalacao,
       dataCriacao: v.data_criacao
     }));
   },
@@ -77,6 +74,142 @@ const hoje = new Date().toLocaleDateString("pt-BR");
 const s = { fontFamily:"'Georgia', serif" };
 const dm = { fontFamily:"'Segoe UI', sans-serif" };
 
+// ── Gráfico de linha simples (SVG) ──
+function GraficoLinha({ visitas }) {
+  const meses = useMemo(() => {
+    const map = {};
+    const agora = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
+      const key = `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+      const label = d.toLocaleString('pt-BR',{month:'short'}).replace('.','');
+      map[key] = { label, receita: 0, visitas: 0 };
+    }
+    visitas.forEach(v => {
+      if (!v.dataCriacao) return;
+      const parts = v.dataCriacao.split('/');
+      if (parts.length < 3) return;
+      const key = `${parts[1]}/${parts[2]}`;
+      if (map[key]) {
+        map[key].visitas++;
+        if (v.status === 'fechado') map[key].receita += valorFinal(v);
+      }
+    });
+    return Object.values(map);
+  }, [visitas]);
+
+  const W = 480, H = 160, PAD = 36;
+  const maxR = Math.max(...meses.map(m => m.receita), META_MENSAL);
+  const pts = meses.map((m, i) => {
+    const x = PAD + (i / (meses.length-1)) * (W - PAD*2);
+    const y = PAD + (1 - m.receita/maxR) * (H - PAD*2);
+    return {x, y, ...m};
+  });
+  const path = pts.map((p,i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
+  const metaY = PAD + (1 - META_MENSAL/maxR) * (H - PAD*2);
+
+  return (
+    <div style={{...dm}}>
+      <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>📈 Evolução da Receita (6 meses)</div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
+        {/* Grid */}
+        {[0,0.25,0.5,0.75,1].map(t => {
+          const y = PAD + t*(H-PAD*2);
+          return <line key={t} x1={PAD} y1={y} x2={W-PAD} y2={y} stroke="#1e1e28" strokeWidth="1"/>;
+        })}
+        {/* Meta line */}
+        {META_MENSAL <= maxR && (
+          <>
+            <line x1={PAD} y1={metaY} x2={W-PAD} y2={metaY} stroke="#c9a84c" strokeWidth="1" strokeDasharray="4,3"/>
+            <text x={W-PAD+4} y={metaY+4} fill="#c9a84c" fontSize="9">meta</text>
+          </>
+        )}
+        {/* Area fill */}
+        <defs>
+          <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d={`${path} L${pts[pts.length-1].x},${H-PAD} L${pts[0].x},${H-PAD} Z`} fill="url(#lg)"/>
+        {/* Line */}
+        <path d={path} fill="none" stroke="#10b981" strokeWidth="2" strokeLinejoin="round"/>
+        {/* Dots + labels */}
+        {pts.map((p,i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r="4" fill="#10b981" stroke="#0a0a0f" strokeWidth="2"/>
+            <text x={p.x} y={H-8} fill="#555" fontSize="9" textAnchor="middle">{p.label}</text>
+            {p.receita > 0 && <text x={p.x} y={p.y-8} fill="#10b981" fontSize="8" textAnchor="middle">{(p.receita/1000).toFixed(0)}k</text>}
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+// ── Funil de conversão ──
+function Funil({ visitas }) {
+  const etapas = [
+    { label: "Total de Leads", key: null, color: "#3b82f6" },
+    { label: "Visita Realizada", key: "visitado", color: "#f59e0b" },
+    { label: "Orçamento Enviado", key: "orcamento_enviado", color: "#8b5cf6" },
+    { label: "Fechado", key: "fechado", color: "#10b981" },
+  ];
+  const counts = etapas.map(e => e.key === null ? visitas.length : visitas.filter(v => v.status === e.key).length);
+  const max = Math.max(counts[0], 1);
+
+  return (
+    <div style={{...dm}}>
+      <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>🔽 Funil de Conversão</div>
+      {etapas.map((e, i) => {
+        const pct = Math.round((counts[i]/max)*100);
+        const conv = i > 0 && counts[i-1] > 0 ? Math.round((counts[i]/counts[i-1])*100) : null;
+        return (
+          <div key={i} style={{marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:12,color:"#aaa"}}>{e.label}</span>
+              <span style={{fontSize:12,color:e.color,fontWeight:600}}>
+                {counts[i]} {conv !== null && <span style={{fontSize:10,color:"#555",fontWeight:400}}>({conv}% da etapa anterior)</span>}
+              </span>
+            </div>
+            <div style={{background:"#1a1a24",borderRadius:4,height:8,overflow:"hidden"}}>
+              <div style={{width:`${pct}%`,height:"100%",background:e.color,borderRadius:4,transition:"width 0.6s ease"}}/>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Medidor de meta (arco SVG) ──
+function MedidorMeta({ receita }) {
+  const pct = Math.min(receita / META_MENSAL, 1);
+  const R = 60, cx = 80, cy = 75;
+  const startAngle = Math.PI;
+  const endAngle = startAngle + pct * Math.PI;
+  const x1 = cx + R * Math.cos(startAngle), y1 = cy + R * Math.sin(startAngle);
+  const x2 = cx + R * Math.cos(endAngle), y2 = cy + R * Math.sin(endAngle);
+  const large = pct > 0.5 ? 1 : 0;
+  const cor = pct >= 1 ? "#10b981" : pct >= 0.6 ? "#c9a84c" : "#ef4444";
+
+  return (
+    <div style={{...dm, textAlign:"center"}}>
+      <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>🎯 Meta do Mês</div>
+      <svg width="160" height="90" viewBox="0 0 160 90">
+        <path d={`M ${cx-R} ${cy} A ${R} ${R} 0 0 1 ${cx+R} ${cy}`} fill="none" stroke="#1e1e28" strokeWidth="10" strokeLinecap="round"/>
+        {pct > 0 && <path d={`M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2}`} fill="none" stroke={cor} strokeWidth="10" strokeLinecap="round"/>}
+        <text x={cx} y={cy-10} textAnchor="middle" fill={cor} fontSize="16" fontWeight="bold">{Math.round(pct*100)}%</text>
+        <text x={cx} y={cy+6} textAnchor="middle" fill="#555" fontSize="8">da meta</text>
+        <text x={20} y={cy+18} fill="#444" fontSize="8">R$0</text>
+        <text x={cx+R-10} y={cy+18} fill="#444" fontSize="8">150k</text>
+      </svg>
+      <div style={{fontSize:13,color:cor,fontWeight:600,marginTop:-8}}>{fmt(receita)}</div>
+      <div style={{fontSize:11,color:"#444",marginTop:2}}>faltam {fmt(Math.max(META_MENSAL-receita,0))}</div>
+    </div>
+  );
+}
+
 export default function CRM() {
   const [visitas, setVisitas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -124,17 +257,14 @@ export default function CRM() {
     try {
       if (form.id) await db.update(form.id, {...form, historico});
       else await db.insert({...form, historico, dataCriacao: hoje});
-      await carregar();
-      setView("lista");
+      await carregar(); setView("lista");
     } catch(e) { console.error(e); }
     setSaving(false);
   };
 
   const excluir = async (id) => {
     if (!window.confirm("Excluir esta visita?")) return;
-    await db.delete(id);
-    await carregar();
-    setView("lista");
+    await db.delete(id); await carregar(); setView("lista");
   };
 
   const addNota = async () => {
@@ -143,8 +273,7 @@ export default function CRM() {
     await db.update(selected.id, {...selected, historico});
     const att = {...selected, historico};
     setVisitas(visitas.map(v=>v.id===selected.id?att:v));
-    setSelected(att);
-    setNota("");
+    setSelected(att); setNota("");
   };
 
   const mudarStatus = async (novoStatus) => {
@@ -165,7 +294,7 @@ export default function CRM() {
 
   if (loading) return (
     <div style={{background:"#0a0a0f",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",...dm,color:"#c9a84c",fontSize:16}}>
-      Conectando ao banco de dados... ⏳
+      Conectando... ⏳
     </div>
   );
 
@@ -187,8 +316,7 @@ export default function CRM() {
         .tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
         .sc{background:#12121a;border:1px solid #22222e;border-radius:10px;padding:18px;position:relative;overflow:hidden}
         .sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#c9a84c,#e0bf6a)}
-        textarea.inp{min-height:80px;resize:vertical}
-        select.inp{cursor:pointer}
+        textarea.inp{min-height:80px;resize:vertical} select.inp{cursor:pointer}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#0a0a0f}::-webkit-scrollbar-thumb{background:#2a2a3a;border-radius:2px}
         .sb{cursor:pointer;border:1px solid #2a2a35;border-radius:6px;padding:7px 12px;font-family:'Segoe UI',sans-serif;font-size:12px;background:transparent;transition:all .15s}
         .sb:hover{transform:translateY(-1px)}
@@ -209,8 +337,8 @@ export default function CRM() {
         <div style={{marginTop:14,padding:"12px 8px",borderTop:"1px solid #1a1a24"}}>
           <div style={{...dm,fontSize:10,color:"#444"}}>RECEITA DO MÊS</div>
           <div style={{...s,fontSize:16,color:"#10b981",marginTop:4}}>{fmt(stats.receita)}</div>
-          <div style={{...dm,fontSize:10,color:"#444",marginTop:8}}>CONVERSÃO</div>
-          <div style={{...s,fontSize:16,color:"#c9a84c",marginTop:4}}>{stats.conversao}%</div>
+          <div style={{...dm,fontSize:10,color:"#444",marginTop:8}}>META</div>
+          <div style={{...s,fontSize:14,color:"#c9a84c",marginTop:4}}>{fmt(META_MENSAL)}</div>
         </div>
       </div>
 
@@ -222,7 +350,9 @@ export default function CRM() {
           <div>
             <div style={{...s,fontSize:24,marginBottom:4}}>Bom dia, Felipe! 👋</div>
             <div style={{...dm,fontSize:13,color:"#555",marginBottom:24}}>Resumo de hoje — {hoje}</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:24}}>
+
+            {/* KPIs */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
               {[
                 {label:"Visitas Hoje",value:stats.hoje,sub:"agendadas",color:"#3b82f6"},
                 {label:"Orçamentos Pendentes",value:stats.pendentes,sub:"aguardando resposta",color:"#8b5cf6"},
@@ -236,8 +366,23 @@ export default function CRM() {
                 </div>
               ))}
             </div>
+
+            {/* GRÁFICOS */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 200px",gap:14,marginBottom:20}}>
+              <div className="card" style={{padding:20}}>
+                <GraficoLinha visitas={visitas}/>
+              </div>
+              <div className="card" style={{padding:20}}>
+                <Funil visitas={visitas}/>
+              </div>
+              <div className="card" style={{padding:20,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <MedidorMeta receita={stats.receita}/>
+              </div>
+            </div>
+
+            {/* AGENDADAS */}
             <div style={{...s,fontSize:17,marginBottom:12}}>📅 Agendadas</div>
-            <div className="card" style={{marginBottom:24}}>
+            <div className="card" style={{marginBottom:20}}>
               {visitas.filter(v=>v.status==="agendado").length===0&&<div style={{padding:28,textAlign:"center",...dm,fontSize:13,color:"#444"}}>Nenhuma visita agendada</div>}
               {visitas.filter(v=>v.status==="agendado").map(v=>(
                 <div key={v.id} className="row" style={{gridTemplateColumns:"2fr 1.5fr 1fr 1fr 60px"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
@@ -249,6 +394,8 @@ export default function CRM() {
                 </div>
               ))}
             </div>
+
+            {/* ORÇAMENTOS */}
             <div style={{...s,fontSize:17,marginBottom:12}}>📋 Orçamentos Pendentes</div>
             <div className="card">
               {visitas.filter(v=>v.status==="orcamento_enviado").length===0&&<div style={{padding:28,textAlign:"center",...dm,fontSize:13,color:"#444"}}>Nenhum orçamento pendente</div>}
@@ -346,7 +493,7 @@ export default function CRM() {
                 <Field label="Medidas" value={selected.medidas}/>
               </div>
               <div className="card" style={{padding:18}}>
-                <div style={{...dm,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>📝 Anotações & Histórico</div>
+                <div style={{...dm,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>📝 Anotações</div>
                 <div style={{display:"flex",gap:8,marginBottom:12}}>
                   <input className="inp" placeholder="Nova anotação (Enter)..." value={nota} onChange={e=>setNota(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addNota()}/>
                   <button className="btn bp" onClick={addNota} style={{whiteSpace:"nowrap",padding:"9px 14px"}}>+</button>
@@ -374,7 +521,7 @@ export default function CRM() {
             </div>
             {importStep==="colar" && (
               <div className="card" style={{padding:24}}>
-                <textarea className="inp" style={{minHeight:240}} placeholder={"Cole aqui o e-mail...\n\nExemplo:\nOlá, Felipe P,\nData: 16/03/2026\nHorário: 13:00\nEndereço: Rua...\nTelefone: 11 99999-9999\nAmbiente(s): Sala\nMotivo principal da compra: Estética"} value={emailTexto} onChange={e=>setEmailTexto(e.target.value)}/>
+                <textarea className="inp" style={{minHeight:240}} placeholder={"Cole aqui o e-mail...\n\nExemplo:\nOlá, Felipe P,\nData: 16/03/2026\nHorário: 13:00\nEndereço: Rua...\nTelefone: 11 99999-9999"} value={emailTexto} onChange={e=>setEmailTexto(e.target.value)}/>
                 <div style={{display:"flex",gap:10,marginTop:16}}>
                   <button className="btn bp" onClick={()=>{if(!emailTexto.trim())return;setForm({...empty,...extrairEmail(emailTexto)});setImportStep("revisar")}} disabled={!emailTexto.trim()}>✨ Extrair Dados</button>
                   <button className="btn bg" onClick={()=>{setForm({...empty});setView("novo")}}>Preencher manualmente</button>
@@ -383,7 +530,7 @@ export default function CRM() {
             )}
             {importStep==="revisar" && (
               <div className="card" style={{padding:20,borderColor:"#3b82f640"}}>
-                <div style={{...dm,fontSize:11,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:16}}>✓ Revise os dados antes de salvar</div>
+                <div style={{...dm,fontSize:11,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:16}}>✓ Revise os dados</div>
                 <div className="g2">
                   {[{label:"Nome *",k:"cliente"},{label:"Telefone",k:"telefone"},{label:"Data",k:"dataVisita",ph:"DD/MM/AAAA"},{label:"Horário",k:"horaVisita",ph:"HH:MM"}].map(f=>(
                     <div key={f.k} style={{marginBottom:11}}>
