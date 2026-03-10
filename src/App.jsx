@@ -294,28 +294,21 @@ export default function CRM() {
 
         /* SIDEBAR desktop */
         .sidebar{width:210px;background:#080810;border-right:1px solid #1a1a24;padding:20px 10px;display:flex;flex-direction:column;gap:3px;flex-shrink:0;position:fixed;left:0;top:0;bottom:0;overflow-y:auto}
-        .main-content{margin-left:210px;padding:26px 28px;min-height:100vh}
+        .main-content{margin-left:210px;padding:26px 32px;min-height:100vh;max-width:100%;width:calc(100vw - 210px)}
 
         @media(max-width:768px){
           .sidebar{display:none}
           .topbar{display:flex}
-          .main-content{margin-left:0;padding:80px 16px 100px}
+          .main-content{margin-left:0;width:100vw;padding:80px 16px 100px}
           .overlay{display:block}
-          /* bottom nav */
           .bottomnav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#080810;border-top:1px solid #1a1a24;z-index:100;padding:6px 0}
           .bnav{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;cursor:pointer;color:#555;font-size:10px;border:none;background:none;transition:color .18s}
           .bnav.on{color:#c9a84c}
           .bnav span{font-size:20px}
-          /* grid helpers */
           .grid-2col{grid-template-columns:1fr!important}
           .grid-4col{grid-template-columns:1fr 1fr!important}
           .graficos-grid{grid-template-columns:1fr!important}
           .hide-mobile{display:none!important}
-          .card-row-mobile{grid-template-columns:1fr!important;gap:6px!important}
-        }
-        @media(min-width:769px){
-          .bottomnav{display:none}
-          .overlay{display:none!important}
         }
       `}</style>
 
@@ -379,7 +372,7 @@ export default function CRM() {
             <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:3}}>Bom dia, Felipe! 👋</div>
             <div style={{fontSize:12,color:"#555",marginBottom:20}}>{hoje}</div>
 
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}} className="grid-4col">
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:16}} className="grid-4col">
               {[
                 {label:"Visitas Hoje",value:stats.hoje,color:"#3b82f6"},
                 {label:"Pendentes",value:stats.pendentes,color:"#8b5cf6"},
@@ -393,7 +386,7 @@ export default function CRM() {
               ))}
             </div>
 
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 180px",gap:12,marginBottom:16}} className="graficos-grid">
+            <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 180px",gap:14,marginBottom:16}} className="graficos-grid">
               <div className="card" style={{padding:16}}><GraficoLinha visitas={visitas}/></div>
               <div className="card" style={{padding:16}}><Funil visitas={visitas}/></div>
               <div className="card" style={{padding:16,display:"flex",alignItems:"center",justifyContent:"center"}}><MedidorMeta receita={stats.receita}/></div>
