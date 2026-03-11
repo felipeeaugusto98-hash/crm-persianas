@@ -225,6 +225,7 @@ export default function CRM() {
   const [calMes, setCalMes] = useState(new Date().getMonth());
   const [calAno, setCalAno] = useState(new Date().getFullYear());
   const [diaSelected, setDiaSelected] = useState(null);
+  const [showLembrete, setShowLembrete] = useState(false);
 
   useEffect(() => { carregar(); }, []);
 
@@ -233,6 +234,10 @@ export default function CRM() {
     try {
       const [v, c] = await Promise.all([db.get(), dbClientes.get()]);
       setVisitas(v); setClientes(c);
+      // Mostra lembrete se tiver visitas hoje
+      const h = new Date().toLocaleDateString("pt-BR");
+      const temHoje = v.filter(x=>x.dataVisita===h && x.status==="agendado").length>0;
+      if(temHoje) setShowLembrete(true);
     } catch(e) { console.error(e); }
     setLoading(false);
   };
@@ -303,6 +308,36 @@ export default function CRM() {
         fim: fimSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
       }
     };
+  }, [visitas]);
+
+  // Ranking de produtos
+  const rankingProdutos = useMemo(()=>{
+    const mapa = {};
+    visitas.forEach(v=>{
+      (v.produtos||"").split(",").forEach(p=>{
+        const pt=p.trim(); if(!pt) return;
+        if(!mapa[pt]) mapa[pt]={total:0,fechados:0,receita:0};
+        mapa[pt].total++;
+        if(v.status==="fechado"){mapa[pt].fechados++;mapa[pt].receita+=valorFinal(v);}
+      });
+    });
+    return Object.entries(mapa).map(([nome,d])=>({
+      nome, total:d.total, fechados:d.fechados,
+      receita:d.receita,
+      conversao:d.total>0?Math.round(d.fechados/d.total*100):0
+    })).sort((a,b)=>b.receita-a.receita);
+  }, [visitas]);
+
+  // Tempo médio de fechamento
+  const tempoMedio = useMemo(()=>{
+    const parseData=(str)=>{if(!str)return null;const[d,m,a]=str.split("/");return new Date(`${a}-${m}-${d}`);};
+    const fechados = visitas.filter(v=>v.status==="fechado"&&v.dataVisita&&v.dataCriacao);
+    const dias = fechados.map(v=>{
+      const criacao=parseData(v.dataCriacao); const visita=parseData(v.dataVisita);
+      if(!criacao||!visita) return null;
+      return Math.abs(Math.floor((visita-criacao)/(1000*60*60*24)));
+    }).filter(d=>d!==null&&d>=0&&d<=90);
+    return dias.length>0?Math.round(dias.reduce((a,b)=>a+b,0)/dias.length):null;
   }, [visitas]);
 
   const filtradas = useMemo(() => visitas.filter(v => {
@@ -453,6 +488,39 @@ export default function CRM() {
         <div style={{fontFamily:"Georgia,serif",fontSize:17,color:"#c9a84c",fontWeight:700}}>Persianas CRM</div>
         <button className="hamburger" onClick={()=>setMenuOpen(!menuOpen)}>☰</button>
       </div>
+
+      {/* LEMBRETE DO DIA */}
+      {showLembrete && (()=>{
+        const visitasHoje = visitas.filter(v=>v.dataVisita===hoje && v.status==="agendado").sort((a,b)=>a.horaVisita?.localeCompare(b.horaVisita));
+        return (
+          <div style={{position:"fixed",inset:0,background:"#00000090",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+            <div style={{background:"#12121a",border:"1px solid #c9a84c40",borderRadius:16,padding:28,maxWidth:420,width:"100%",boxShadow:"0 20px 60px #000"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                <div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#c9a84c"}}>☀️ Bom dia, Felipe!</div>
+                  <div style={{fontSize:12,color:"#555",marginTop:2}}>Você tem {visitasHoje.length} visita{visitasHoje.length!==1?"s":""} hoje</div>
+                </div>
+                <button className="btn bg" style={{fontSize:18,padding:"4px 10px"}} onClick={()=>setShowLembrete(false)}>✕</button>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+                {visitasHoje.map(v=>(
+                  <div key={v.id} style={{padding:"12px 14px",borderRadius:10,background:"#0d0d15",border:"1px solid #c9a84c30",cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe");setShowLembrete(false)}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:14,fontWeight:600,color:"#e8e4dc"}}>{v.cliente}</div>
+                        <div style={{fontSize:11,color:"#555",marginTop:2}}>🕐 {v.horaVisita} · 📍 {v.endereco?.slice(0,35)}</div>
+                        <div style={{fontSize:11,color:"#777",marginTop:1}}>🏠 {v.ambiente} · {v.produtos||"—"}</div>
+                      </div>
+                      <div style={{fontSize:11,color:"#c9a84c",fontWeight:700}}>{v.horaVisita}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button className="btn bp" style={{width:"100%",padding:12}} onClick={()=>setShowLembrete(false)}>Entendido, vamos lá! 💪</button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* OVERLAY + DRAWER mobile */}
       {menuOpen && <div className="overlay" onClick={()=>setMenuOpen(false)}/>}
@@ -736,6 +804,48 @@ export default function CRM() {
                 </div>
               ))}
             </div>
+
+            {/* RANKING PRODUTOS + TEMPO MÉDIO */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:16}} className="grid-2col">
+              <div className="card" style={{padding:18}}>
+                <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>🏆 Ranking de Produtos</div>
+                {rankingProdutos.length===0 && <div style={{fontSize:12,color:"#444"}}>Sem dados ainda</div>}
+                {rankingProdutos.slice(0,6).map((p,i)=>(
+                  <div key={p.nome} style={{marginBottom:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:12,color:"#c9a84c",fontWeight:700,width:16}}>{i+1}.</span>
+                        <span style={{fontSize:12,color:"#e8e4dc"}}>{p.nome}</span>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <span style={{fontSize:11,color:"#10b981",fontWeight:600}}>{p.conversao}%</span>
+                        <span style={{fontSize:10,color:"#444",marginLeft:6}}>{p.fechados}/{p.total}</span>
+                      </div>
+                    </div>
+                    <div style={{height:4,background:"#1a1a24",borderRadius:2}}>
+                      <div style={{height:4,borderRadius:2,background:"#c9a84c",width:`${p.conversao}%`}}/>
+                    </div>
+                    <div style={{fontSize:10,color:"#555",marginTop:2}}>{fmt(p.receita)} gerados</div>
+                  </div>
+                ))}
+              </div>
+              <div className="card" style={{padding:18}}>
+                <div style={{fontSize:11,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>⏱ Tempo Médio de Fechamento</div>
+                <div style={{textAlign:"center",padding:"20px 0"}}>
+                  {tempoMedio===null ? (
+                    <div style={{fontSize:13,color:"#444"}}>Sem dados suficientes</div>
+                  ):(
+                    <>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:48,color:"#3b82f6",lineHeight:1}}>{tempoMedio}</div>
+                      <div style={{fontSize:14,color:"#555",marginTop:4}}>dias do lead ao fechamento</div>
+                      <div style={{fontSize:11,color:"#444",marginTop:16,padding:"10px",background:"#3b82f610",borderRadius:8,border:"1px solid #3b82f620"}}>
+                        {tempoMedio<=7?"🔥 Excelente velocidade de fechamento!":tempoMedio<=14?"✅ Tempo dentro do esperado":tempoMedio<=30?"⚠️ Considere acelerar o follow-up":"🐢 Muitos leads demorando para fechar"}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -901,6 +1011,37 @@ export default function CRM() {
               <button className="btn bg" onClick={()=>{setForm({...selected});setView("novo")}}>✎</button>
               <button className="btn bd" onClick={()=>excluir(selected.id)}>✕</button>
             </div>
+
+            {/* Score do Lead */}
+            {(()=>{
+              const urgPts = {"Imediato":30,"Alta":20,"Média":10,"Baixa":5}[selected.urgencia]||0;
+              const motPts = {"Reforma":25,"Casa nova":25,"Escritório":20,"Presente":15,"Outro":5}[selected.motivoCompra]||10;
+              const valPts = valorFinal(selected)>=20000?25:valorFinal(selected)>=10000?15:valorFinal(selected)>=5000?10:5;
+              const prodPts = (selected.produtos||"").toLowerCase().includes("motorizado")?15:selected.produtos?10:0;
+              const score = Math.min(urgPts+motPts+valPts+prodPts,100);
+              const cor = score>=70?"#10b981":score>=40?"#c9a84c":"#ef4444";
+              const label = score>=70?"🔥 Lead Quente":score>=40?"⚡ Lead Morno":"❄️ Lead Frio";
+              return (
+                <div className="card" style={{padding:14,marginBottom:14,borderColor:cor+"40"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:10,color:cor,textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>🎯 Score do Lead</div>
+                      <div style={{fontSize:13,color:"#aaa"}}>{label}</div>
+                      <div style={{fontSize:11,color:"#444",marginTop:4}}>
+                        Urgência: +{urgPts} · Motivo: +{motPts} · Valor: +{valPts} · Produto: +{prodPts}
+                      </div>
+                    </div>
+                    <div style={{textAlign:"center"}}>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:36,color:cor,lineHeight:1}}>{score}</div>
+                      <div style={{fontSize:10,color:"#444"}}>/ 100</div>
+                    </div>
+                  </div>
+                  <div style={{height:6,background:"#1a1a24",borderRadius:3,marginTop:10}}>
+                    <div style={{height:6,borderRadius:3,background:cor,width:`${score}%`,transition:"width .8s"}}/>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* WhatsApp Templates */}
             <div className="card" style={{padding:14,marginBottom:14,borderColor:"#25d36640"}}>
