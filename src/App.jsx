@@ -727,12 +727,18 @@ export default function CRM() {
                 <Field label="Desconto" value={selected.desconto?`${selected.desconto}%`:null} color="#ef4444"/>
                 <Field label="Valor Final" value={selected.valorOrcamento?fmt(valorFinal(selected)):null} color="#10b981"/>
                 <Field label="Instalação" value={selected.dataInstalacao} color="#8b5cf6"/>
-                {selected.linkOrcamento && (
-                  <div style={{marginTop:8}}>
-                    <a href={selected.linkOrcamento} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
-                      <button className="btn bg" style={{width:"100%",color:"#8b5cf6",borderColor:"#8b5cf640",fontSize:12}}>🔗 Abrir Orçamento</button>
-                    </a>
-                  </div>
+                {selected.status!=="orcamento_enviado" && selected.status!=="fechado" && (
+                  <button className="btn bg" style={{width:"100%",marginTop:10,color:"#8b5cf6",borderColor:"#8b5cf640",fontSize:12}} onClick={async()=>{
+                    const nota = `📋 Orçamento enviado ao cliente — ${new Date().toLocaleString("pt-BR")}`;
+                    const novoHist = [...(selected.historico||[]), {texto:nota, data:new Date().toLocaleString("pt-BR")}];
+                    await db.update(selected.id, {...selected, status:"orcamento_enviado", historico:novoHist});
+                    const atualizado = {...selected, status:"orcamento_enviado", historico:novoHist};
+                    setSelected(atualizado);
+                    setVisitas(vs=>vs.map(v=>v.id===selected.id?atualizado:v));
+                  }}>📋 Marcar Orçamento como Enviado</button>
+                )}
+                {selected.status==="orcamento_enviado" && (
+                  <div style={{marginTop:10,padding:"8px 12px",borderRadius:8,background:"#8b5cf615",border:"1px solid #8b5cf640",fontSize:12,color:"#8b5cf6",textAlign:"center"}}>✓ Orçamento já enviado</div>
                 )}
               </div>
               <div className="card" style={{padding:16}}>
@@ -1198,10 +1204,6 @@ export default function CRM() {
                   <div style={{marginBottom:12}}>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Data de Instalação</label>
                     <input className="inp" placeholder="DD/MM/AAAA" value={form.dataInstalacao} onChange={e=>setForm({...form,dataInstalacao:e.target.value})}/>
-                  </div>
-                  <div style={{marginBottom:12}}>
-                    <label style={{fontSize:11,color:"#8b5cf6",display:"block",marginBottom:5}}>🔗 Link do Orçamento</label>
-                    <input className="inp" placeholder="Cole o link do seu sistema de orçamento..." value={form.linkOrcamento||""} onChange={e=>setForm({...form,linkOrcamento:e.target.value})} style={{borderColor:"#8b5cf640"}}/>
                   </div>
                   <div>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Status</label>
