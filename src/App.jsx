@@ -262,13 +262,46 @@ export default function CRM() {
 
   const stats = useMemo(() => {
     const fechados = visitas.filter(v=>v.status==="fechado");
+    // Semana atual (seg a dom)
+    const agora = new Date();
+    const diaSemana = agora.getDay(); // 0=dom
+    const inicioSemana = new Date(agora);
+    inicioSemana.setDate(agora.getDate() - (diaSemana===0?6:diaSemana-1));
+    inicioSemana.setHours(0,0,0,0);
+    const fimSemana = new Date(inicioSemana);
+    fimSemana.setDate(inicioSemana.getDate()+6);
+    fimSemana.setHours(23,59,59,999);
+
+    const parseData = (str) => {
+      if(!str) return null;
+      const [d,m,a] = str.split("/");
+      return new Date(`${a}-${m}-${d}`);
+    };
+
+    const fechadosSemana = fechados.filter(v=>{
+      const d = parseData(v.dataVisita);
+      return d && d>=inicioSemana && d<=fimSemana;
+    });
+    const visitasSemana = visitas.filter(v=>{
+      const d = parseData(v.dataVisita);
+      return d && d>=inicioSemana && d<=fimSemana;
+    });
+
     return {
       total: visitas.length,
       fechados: fechados.length,
       pendentes: visitas.filter(v=>v.status==="orcamento_enviado").length,
       hoje: visitas.filter(v=>v.dataVisita===hoje).length,
       receita: fechados.reduce((a,v)=>a+valorFinal(v),0),
-      conversao: visitas.length>0?((fechados.length/visitas.length)*100).toFixed(0):0
+      conversao: visitas.length>0?((fechados.length/visitas.length)*100).toFixed(0):0,
+      semana: {
+        receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0),
+        vendas: fechadosSemana.length,
+        visitas: visitasSemana.length,
+        conversao: visitasSemana.length>0?Math.round(fechadosSemana.length/visitasSemana.length*100):0,
+        inicio: inicioSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
+        fim: fimSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
+      }
     };
   }, [visitas]);
 
@@ -590,6 +623,38 @@ export default function CRM() {
               <div className="card" style={{padding:16}}><Funil visitas={visitas}/></div>
               <div className="card" style={{padding:16,display:"flex",alignItems:"center",justifyContent:"center"}}><MedidorMeta receita={stats.receita}/></div>
             </div>
+
+            {/* META SEMANAL */}
+            {(()=>{
+              const META_SEMANAL = META_MENSAL / 4;
+              const pct = Math.min(stats.semana.receita / META_SEMANAL, 1);
+              const cor = pct>=1?"#10b981":pct>=0.6?"#c9a84c":"#ef4444";
+              return (
+                <div className="card" style={{padding:18,marginBottom:16,borderColor:cor+"40"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+                    <div>
+                      <div style={{fontSize:11,color:cor,textTransform:"uppercase",letterSpacing:"1px",marginBottom:2}}>🎯 Meta Semanal — {stats.semana.inicio} a {stats.semana.fim}</div>
+                      <div style={{fontSize:11,color:"#444"}}>Meta: {fmt(META_SEMANAL)} · {stats.semana.visitas} visitas · {stats.semana.vendas} fechadas · {stats.semana.conversao}% conversão</div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:22,color:cor}}>{fmt(stats.semana.receita)}</div>
+                      <div style={{fontSize:11,color:"#555"}}>{Math.round(pct*100)}% da meta</div>
+                    </div>
+                  </div>
+                  <div style={{height:8,background:"#1a1a24",borderRadius:4,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${Math.round(pct*100)}%`,background:`linear-gradient(90deg,${cor},${cor}aa)`,borderRadius:4,transition:"width .8s"}}/>
+                  </div>
+                  {pct<1 && (
+                    <div style={{fontSize:11,color:"#555",marginTop:8}}>
+                      💡 Faltam <span style={{color:cor,fontWeight:600}}>{fmt(META_SEMANAL-stats.semana.receita)}</span> para bater a meta semanal
+                    </div>
+                  )}
+                  {pct>=1 && (
+                    <div style={{fontSize:12,color:"#10b981",marginTop:8,fontWeight:600}}>🏆 Meta semanal batida!</div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div style={{fontFamily:"Georgia,serif",fontSize:16,marginBottom:10}}>📅 Agendadas</div>
             <div className="card" style={{marginBottom:16}}>
