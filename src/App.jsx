@@ -893,15 +893,49 @@ export default function CRM() {
                   {label:"Nome *",k:"nome",col:2},
                   {label:"Telefone",k:"telefone",col:1},
                   {label:"E-mail",k:"email",col:1},
-                  {label:"Endereço",k:"endereco",col:2},
-                  {label:"Bairro",k:"bairro",col:1},
-                  {label:"Cidade",k:"cidade",col:1},
                 ].map(f=>(
                   <div key={f.k} style={{marginBottom:12,gridColumn:`span ${f.col}`}}>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
                     <input className="inp" value={formCliente[f.k]} onChange={e=>setFormCliente({...formCliente,[f.k]:e.target.value})}/>
                   </div>
                 ))}
+
+                {/* CEP com busca automática */}
+                <div style={{marginBottom:12,gridColumn:"span 1"}}>
+                  <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>CEP</label>
+                  <div style={{display:"flex",gap:8}}>
+                    <input
+                      className="inp"
+                      placeholder="00000-000"
+                      value={formCliente.cep||""}
+                      onChange={e=>setFormCliente({...formCliente,cep:e.target.value})}
+                      onBlur={async e=>{
+                        const cep=e.target.value.replace(/\D/g,"");
+                        if(cep.length!==8) return;
+                        try{
+                          const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                          const d=await r.json();
+                          if(!d.erro) setFormCliente(f=>({...f,endereco:d.logradouro,bairro:d.bairro,cidade:d.localidade,cep:e.target.value}));
+                        }catch(e){console.error(e);}
+                      }}
+                    />
+                  </div>
+                  <div style={{fontSize:10,color:"#444",marginTop:4}}>Digite e saia do campo para preencher automaticamente</div>
+                </div>
+
+                <div style={{marginBottom:12,gridColumn:"span 1"}}/>
+
+                {[
+                  {label:"Endereço",k:"endereco",col:2},
+                  {label:"Bairro",k:"bairro",col:1},
+                  {label:"Cidade",k:"cidade",col:1},
+                ].map(f=>(
+                  <div key={f.k} style={{marginBottom:12,gridColumn:`span ${f.col}`}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
+                    <input className="inp" value={formCliente[f.k]||""} onChange={e=>setFormCliente({...formCliente,[f.k]:e.target.value})}/>
+                  </div>
+                ))}
+
                 <div style={{marginBottom:12,gridColumn:"span 2"}}>
                   <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Origem do Lead</label>
                   <select className="inp" value={formCliente.origem} onChange={e=>setFormCliente({...formCliente,origem:e.target.value})}>
