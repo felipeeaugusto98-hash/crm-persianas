@@ -52,7 +52,7 @@ const dbClientes = {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/clientes`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem })
+      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem, cpf: c.cpf, data_nascimento: c.dataNascimento })
     });
     return (await res.json())[0];
   },
@@ -60,7 +60,7 @@ const dbClientes = {
     await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${id}`, {
       method: "PATCH",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem })
+      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem, cpf: c.cpf, data_nascimento: c.dataNascimento })
     });
   },
   async delete(id) {
@@ -71,7 +71,7 @@ const dbClientes = {
   }
 };
 
-const emptyCliente = { nome:"", telefone:"", email:"", endereco:"", bairro:"", cidade:"", observacoes:"", origem:"" };
+const emptyCliente = { nome:"", telefone:"", email:"", endereco:"", bairro:"", cidade:"", observacoes:"", origem:"", cpf:"", dataNascimento:"" };
 
 const STATUS = {
   agendado: { label: "Agendado", color: "#3b82f6", bg: "#3b82f615", icon: "📅" },
@@ -807,6 +807,45 @@ export default function CRM() {
                             </span>
                           </div>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ANIVERSÁRIOS */}
+            {(()=>{
+              const diaHoje = hoje.slice(0,5); // DD/MM
+              const amanha = new Date(); amanha.setDate(amanha.getDate()+1);
+              const diaAmanha = amanha.toLocaleDateString("pt-BR").slice(0,5);
+              const anivHoje = clientes.filter(c=>c.data_nascimento?.slice(0,5)===diaHoje);
+              const anivAmanha = clientes.filter(c=>c.data_nascimento?.slice(0,5)===diaAmanha);
+              if(anivHoje.length===0 && anivAmanha.length===0) return null;
+              return (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,marginBottom:10,color:"#f59e0b"}}>🎂 Aniversários</div>
+                  <div className="card" style={{borderColor:"#f59e0b30"}}>
+                    {anivHoje.map(c=>(
+                      <div key={c.id} style={{padding:"12px 16px",borderBottom:"1px solid #1a1a24",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:600,color:"#f59e0b"}}>🎉 {c.nome}</div>
+                          <div style={{fontSize:11,color:"#555",marginTop:2}}>Aniversário HOJE!</div>
+                        </div>
+                        <a href={`https://wa.me/55${c.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${c.nome?.split(" ")[0]}! 🎉🎂\n\nA equipe Persianas em Casa deseja a você um feliz aniversário! Que seu dia seja incrível!\n\nAbraços,\nFelipe - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                          <button className="btn bp" style={{fontSize:12,padding:"7px 14px"}}>🎂 Parabenizar</button>
+                        </a>
+                      </div>
+                    ))}
+                    {anivAmanha.map(c=>(
+                      <div key={c.id} style={{padding:"12px 16px",borderBottom:"1px solid #1a1a24",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:600}}>{c.nome}</div>
+                          <div style={{fontSize:11,color:"#f59e0b",marginTop:2}}>⏰ Aniversário amanhã</div>
+                        </div>
+                        <a href={`https://wa.me/55${c.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${c.nome?.split(" ")[0]}! 🎉🎂\n\nA equipe Persianas em Casa deseja a você um feliz aniversário! Que seu dia seja incrível!\n\nAbraços,\nFelipe - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                          <button className="sb" style={{fontSize:12,color:"#f59e0b",borderColor:"#f59e0b40"}}>🎂 Preparar</button>
+                        </a>
                       </div>
                     ))}
                   </div>
@@ -2118,6 +2157,28 @@ export default function CRM() {
                     <input className="inp" value={formCliente[f.k]} onChange={e=>setFormCliente({...formCliente,[f.k]:e.target.value})}/>
                   </div>
                 ))}
+
+                {/* CPF */}
+                <div style={{marginBottom:12,gridColumn:"span 1"}}>
+                  <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>CPF</label>
+                  <input className="inp" placeholder="000.000.000-00" value={formCliente.cpf||""} onChange={e=>{
+                    let v=e.target.value.replace(/\D/g,"");
+                    if(v.length>11) v=v.slice(0,11);
+                    v=v.replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d{1,2})$/,"$1-$2");
+                    setFormCliente({...formCliente,cpf:v});
+                  }}/>
+                </div>
+
+                {/* Data de Nascimento */}
+                <div style={{marginBottom:12,gridColumn:"span 1"}}>
+                  <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>🎂 Data de Nascimento</label>
+                  <input className="inp" placeholder="DD/MM/AAAA" value={formCliente.dataNascimento||""} onChange={e=>{
+                    let v=e.target.value.replace(/\D/g,"");
+                    if(v.length>8) v=v.slice(0,8);
+                    v=v.replace(/(\d{2})(\d)/,"$1/$2").replace(/(\d{2})(\d)/,"$1/$2");
+                    setFormCliente({...formCliente,dataNascimento:v});
+                  }}/>
+                </div>
 
                 {/* CEP com busca automática */}
                 <div style={{marginBottom:12,gridColumn:"span 1"}}>
