@@ -229,6 +229,9 @@ export default function CRM() {
   const [ocorrencias, setOcorrencias] = useState([]);
   const [formOcorrencia, setFormOcorrencia] = useState(null);
   const emptyOc = { cliente:"", telefone:"", visita_id:"", tipo:"", descricao:"", status_oc:"aberto", previsao:"", resolucao:"", data_abertura: new Date().toLocaleDateString("pt-BR") };
+  const [simValor, setSimValor] = useState("");
+  const [simDesc, setSimDesc] = useState(0);
+  const [checklist, setChecklist] = useState({trena:false,amostras:false,tablet:false,cartao:false,contrato:false,caneta:false,uniforme:false});
 
   useEffect(() => { carregar(); }, []);
 
@@ -1125,10 +1128,7 @@ export default function CRM() {
         {view==="rota" && (()=>{
           const visitasHoje = visitas.filter(v=>v.dataVisita===hoje).sort((a,b)=>a.horaVisita?.localeCompare(b.horaVisita));
           const enderecos = visitasHoje.map(v=>encodeURIComponent(v.endereco||"")).filter(Boolean);
-          const urlMaps = enderecos.length>0
-            ? `https://www.google.com/maps/dir/${enderecos.join("/")}`
-            : null;
-          const [checklist, setChecklist] = useState({trena:false,amostras:false,tablet:false,cartao:false,contrato:false,caneta:false,uniforme:false});
+          const urlMaps = enderecos.length>0 ? `https://www.google.com/maps/dir/${enderecos.join("/")}` : null;
           const itens = [{k:"trena",l:"📏 Trena"},{k:"amostras",l:"🎨 Amostras de tecido"},{k:"tablet",l:"📱 Tablet/celular carregado"},{k:"cartao",l:"💳 Cartão de visita"},{k:"contrato",l:"📄 Contrato/proposta"},{k:"caneta",l:"✏️ Caneta"},{k:"uniforme",l:"👔 Uniforme"}];
           const prontos = Object.values(checklist).filter(Boolean).length;
           return (
@@ -1191,8 +1191,6 @@ export default function CRM() {
 
         {/* SIMULADOR DE DESCONTO */}
         {view==="simulador" && (()=>{
-          const [simValor, setSimValor] = useState("");
-          const [simDesc, setSimDesc] = useState(0);
           const pct = comissao.pct;
           const vFinal = simValor ? Number(simValor)*(1-simDesc/100) : 0;
           const comissaoSim = vFinal * pct / 100;
