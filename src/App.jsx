@@ -605,6 +605,52 @@ export default function CRM() {
               ))}
             </div>
 
+            {/* ALERTAS FOLLOW-UP */}
+            {(()=>{
+              const hoje2 = new Date();
+              const parseData = (str) => {
+                if(!str) return null;
+                const [d,m,a] = str.split("/");
+                return new Date(`${a}-${m}-${d}`);
+              };
+              const alertas = visitas.filter(v=>{
+                if(["fechado","perdido"].includes(v.status)) return false;
+                const data = parseData(v.dataVisita);
+                if(!data) return false;
+                const dias = Math.floor((hoje2-data)/(1000*60*60*24));
+                return dias >= 3;
+              }).map(v=>{
+                const data = parseData(v.dataVisita);
+                const dias = Math.floor((hoje2-data)/(1000*60*60*24));
+                return {...v, diasSemUpdate: dias};
+              }).sort((a,b)=>b.diasSemUpdate-a.diasSemUpdate);
+
+              if(alertas.length===0) return null;
+              return (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,marginBottom:10,color:"#f97316"}}>🔔 Precisam de Follow-up ({alertas.length})</div>
+                  <div className="card" style={{borderColor:"#f9731630"}}>
+                    {alertas.map(v=>(
+                      <div key={v.id} style={{padding:"12px 16px",borderBottom:"1px solid #1a1a24",cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div>
+                            <div style={{fontSize:14,fontWeight:600}}>{v.cliente}</div>
+                            <div style={{fontSize:11,color:"#555",marginTop:2}}>{v.dataVisita} · {v.ambiente}</div>
+                          </div>
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                            <span className="tag" style={{background:STATUS[v.status]?.bg,color:STATUS[v.status]?.color}}>{STATUS[v.status]?.icon} {STATUS[v.status]?.label}</span>
+                            <span style={{fontSize:11,color:v.diasSemUpdate>=7?"#ef4444":"#f97316",fontWeight:600}}>
+                              {v.diasSemUpdate}d sem atualização
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div style={{fontFamily:"Georgia,serif",fontSize:16,marginBottom:10}}>📋 Orçamentos Pendentes</div>
             <div className="card">
               {visitas.filter(v=>v.status==="orcamento_enviado").length===0&&<div style={{padding:24,textAlign:"center",fontSize:13,color:"#444"}}>Nenhum pendente</div>}
