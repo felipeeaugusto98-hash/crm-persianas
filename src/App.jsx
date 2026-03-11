@@ -226,6 +226,9 @@ export default function CRM() {
   const [calAno, setCalAno] = useState(new Date().getFullYear());
   const [diaSelected, setDiaSelected] = useState(null);
   const [showLembrete, setShowLembrete] = useState(false);
+  const [ocorrencias, setOcorrencias] = useState([]);
+  const [formOcorrencia, setFormOcorrencia] = useState(null);
+  const emptyOc = { cliente:"", telefone:"", visita_id:"", tipo:"", descricao:"", status_oc:"aberto", previsao:"", resolucao:"", data_abertura: new Date().toLocaleDateString("pt-BR") };
 
   useEffect(() => { carregar(); }, []);
 
@@ -532,6 +535,7 @@ export default function CRM() {
         <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>navTo("clientes")}>👥 Clientes</div>
         <div className={`nav ${view==="comissao"?"on":""}`} onClick={()=>navTo("comissao")}>💰 Comissão</div>
         <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>navTo("cancelamentos")}>📊 Cancelamentos</div>
+        <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>navTo("ocorrencias")}>🔧 Ocorrências</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:12,marginTop:16}} onClick={()=>navTo("novo")}>+ Nova Visita</button>
@@ -555,6 +559,7 @@ export default function CRM() {
         <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>setView("clientes")}>👥 Clientes</div>
         <div className={`nav ${view==="comissao"?"on":""}`} onClick={()=>setView("comissao")}>💰 Comissão</div>
         <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>setView("cancelamentos")}>📊 Cancelamentos</div>
+        <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>setView("ocorrencias")}>🔧 Ocorrências</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:11}} onClick={()=>{setForm({...empty});setView("novo")}}>+ Nova Visita</button>
@@ -955,6 +960,157 @@ export default function CRM() {
                   </div>
                 </div>
               )}
+            </div>
+          );
+        })()}
+
+        {/* OCORRÊNCIAS */}
+        {view==="ocorrencias" && (()=>{
+          const TIPOS = ["Peça a pedir","Erro de fábrica","Erro de medida","Defeito no produto","Problema na instalação","Retrabalho","Outro"];
+          const STATUS_OC = {
+            aberto:    {label:"Aberto",    color:"#ef4444", bg:"#ef444415", icon:"🔴"},
+            andamento: {label:"Em andamento", color:"#f59e0b", bg:"#f59e0b15", icon:"🟡"},
+            aguardando:{label:"Aguardando peça", color:"#8b5cf6", bg:"#8b5cf615", icon:"🟣"},
+            resolvido: {label:"Resolvido", color:"#10b981", bg:"#10b98115", icon:"✅"},
+          };
+
+          const salvarOc = () => {
+            if(!formOcorrencia.cliente||!formOcorrencia.tipo) return;
+            if(formOcorrencia._idx!==undefined){
+              const novo=[...ocorrencias]; novo[formOcorrencia._idx]={...formOcorrencia}; setOcorrencias(novo);
+            } else {
+              setOcorrencias([{...formOcorrencia, id:Date.now()}, ...ocorrencias]);
+            }
+            setFormOcorrencia(null);
+          };
+
+          const abertas = ocorrencias.filter(o=>o.status_oc!=="resolvido").length;
+
+          return (
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,flexWrap:"wrap",gap:10}}>
+                <div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22}}>🔧 Ocorrências</div>
+                  <div style={{fontSize:12,color:"#555",marginTop:2}}>{abertas} em aberto · {ocorrencias.length} total</div>
+                </div>
+                <button className="btn bp" onClick={()=>setFormOcorrencia({...emptyOc})}>+ Nova Ocorrência</button>
+              </div>
+
+              {/* Formulário */}
+              {formOcorrencia && (
+                <div className="card" style={{padding:20,marginBottom:16,borderColor:"#ef444440",marginTop:16}}>
+                  <div style={{fontSize:11,color:"#ef4444",textTransform:"uppercase",letterSpacing:"1px",marginBottom:16}}>
+                    {formOcorrencia._idx!==undefined?"✎ Editar":"+ Nova"} Ocorrência
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Cliente *</label>
+                      <input className="inp" placeholder="Nome do cliente" value={formOcorrencia.cliente} onChange={e=>setFormOcorrencia({...formOcorrencia,cliente:e.target.value})}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Telefone</label>
+                      <input className="inp" placeholder="(11) 99999-9999" value={formOcorrencia.telefone} onChange={e=>setFormOcorrencia({...formOcorrencia,telefone:e.target.value})}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Tipo de Problema *</label>
+                      <select className="inp" value={formOcorrencia.tipo} onChange={e=>setFormOcorrencia({...formOcorrencia,tipo:e.target.value})}>
+                        <option value="">Selecionar...</option>
+                        {TIPOS.map(t=><option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Status</label>
+                      <select className="inp" value={formOcorrencia.status_oc} onChange={e=>setFormOcorrencia({...formOcorrencia,status_oc:e.target.value})}>
+                        {Object.entries(STATUS_OC).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Previsão de Resolução</label>
+                      <input className="inp" placeholder="DD/MM/AAAA" value={formOcorrencia.previsao} onChange={e=>setFormOcorrencia({...formOcorrencia,previsao:e.target.value})}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Data de Abertura</label>
+                      <input className="inp" value={formOcorrencia.data_abertura} onChange={e=>setFormOcorrencia({...formOcorrencia,data_abertura:e.target.value})}/>
+                    </div>
+                    <div style={{gridColumn:"span 2"}}>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Descrição do Problema</label>
+                      <textarea className="inp" placeholder="Descreva o problema detalhadamente..." value={formOcorrencia.descricao} onChange={e=>setFormOcorrencia({...formOcorrencia,descricao:e.target.value})} style={{minHeight:80}}/>
+                    </div>
+                    {formOcorrencia.status_oc==="resolvido" && (
+                      <div style={{gridColumn:"span 2"}}>
+                        <label style={{fontSize:11,color:"#10b981",display:"block",marginBottom:5}}>Como foi resolvido?</label>
+                        <textarea className="inp" placeholder="Descreva a solução..." value={formOcorrencia.resolucao} onChange={e=>setFormOcorrencia({...formOcorrencia,resolucao:e.target.value})} style={{minHeight:60,borderColor:"#10b98140"}}/>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* WhatsApp para o cliente da ocorrência */}
+                  {formOcorrencia.telefone && (
+                    <div style={{marginBottom:12}}>
+                      <label style={{fontSize:11,color:"#25d366",display:"block",marginBottom:6}}>💬 Avisar cliente pelo WhatsApp</label>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        {[
+                          {label:"Informar problema", msg:`Olá, ${formOcorrencia.cliente?.split(" ")[0]}! Tudo bem?\n\nEstou entrando em contato para informar que identificamos um problema com seu pedido: *${formOcorrencia.tipo}*.\n\nJá estamos providenciando a solução e em breve retornaremos com uma previsão.\n\nFelipe - Persianas em Casa`},
+                          {label:"Dar prazo", msg:`Olá, ${formOcorrencia.cliente?.split(" ")[0]}! Tudo bem?\n\nPassando para informar que a previsão de resolução do seu problema é *${formOcorrencia.previsao||"em breve"}*.\n\nQualquer dúvida estou à disposição!\n\nFelipe - Persianas em Casa`},
+                          {label:"Resolver", msg:`Olá, ${formOcorrencia.cliente?.split(" ")[0]}! Tudo bem?\n\nBoa notícia! O problema com seu pedido foi resolvido. ✅\n\nEntre em contato para agendarmos a próxima etapa.\n\nFelipe - Persianas em Casa`},
+                        ].map(t=>(
+                          <a key={t.label} href={`https://wa.me/55${formOcorrencia.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(t.msg)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                            <button className="sb" style={{color:"#25d366",borderColor:"#25d36640",fontSize:12}}>💬 {t.label}</button>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{display:"flex",gap:10}}>
+                    <button className="btn bp" onClick={salvarOc} disabled={!formOcorrencia.cliente||!formOcorrencia.tipo}>Salvar</button>
+                    <button className="btn bg" onClick={()=>setFormOcorrencia(null)}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* KPIs */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,margin:"16px 0"}} className="grid-4col">
+                {Object.entries(STATUS_OC).map(([k,s])=>(
+                  <div key={k} className="sc" style={{borderTop:`2px solid ${s.color}`}}>
+                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:6}}>{s.icon} {s.label}</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:24,color:s.color}}>{ocorrencias.filter(o=>o.status_oc===k).length}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Lista */}
+              {ocorrencias.length===0 && !formOcorrencia && (
+                <div className="card" style={{padding:36,textAlign:"center",color:"#444",fontSize:13}}>Nenhuma ocorrência registrada 🎉</div>
+              )}
+              <div className="card">
+                {ocorrencias.map((oc,idx)=>(
+                  <div key={oc.id||idx} style={{padding:"14px 16px",borderBottom:"1px solid #1a1a24"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
+                          <span style={{fontSize:14,fontWeight:600}}>{oc.cliente}</span>
+                          <span className="tag" style={{background:STATUS_OC[oc.status_oc]?.bg,color:STATUS_OC[oc.status_oc]?.color}}>
+                            {STATUS_OC[oc.status_oc]?.icon} {STATUS_OC[oc.status_oc]?.label}
+                          </span>
+                          <span style={{fontSize:11,padding:"3px 8px",borderRadius:20,background:"#1a1a24",color:"#777"}}>{oc.tipo}</span>
+                        </div>
+                        {oc.descricao && <div style={{fontSize:12,color:"#666",marginBottom:4}}>{oc.descricao}</div>}
+                        {oc.resolucao && <div style={{fontSize:12,color:"#10b981",marginBottom:4}}>✅ {oc.resolucao}</div>}
+                        <div style={{fontSize:11,color:"#444"}}>
+                          Aberto em {oc.data_abertura}
+                          {oc.previsao&&<span> · Previsão: {oc.previsao}</span>}
+                          {oc.telefone&&<span> · {oc.telefone}</span>}
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:6,flexShrink:0}}>
+                        <button className="btn bg" style={{fontSize:12,padding:"6px 10px"}} onClick={()=>setFormOcorrencia({...oc,_idx:idx})}>✎</button>
+                        <button className="btn bd" style={{fontSize:12,padding:"6px 10px"}} onClick={()=>{if(window.confirm("Excluir?"))setOcorrencias(ocorrencias.filter((_,i)=>i!==idx))}}>✕</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           );
         })()}
