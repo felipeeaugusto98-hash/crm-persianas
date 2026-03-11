@@ -52,7 +52,7 @@ const dbClientes = {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/clientes`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem, cpf: c.cpf, data_nascimento: c.dataNascimento })
+      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem, cpf: c.cpf, data_nascimento: c.dataNascimento, cep: c.cep })
     });
     return (await res.json())[0];
   },
@@ -60,7 +60,7 @@ const dbClientes = {
     await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${id}`, {
       method: "PATCH",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem, cpf: c.cpf, data_nascimento: c.dataNascimento })
+      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem, cpf: c.cpf, data_nascimento: c.dataNascimento, cep: c.cep })
     });
   },
   async delete(id) {
@@ -2118,6 +2118,7 @@ export default function CRM() {
                   {label:"CPF",value:selectedCliente.cpf},
                   {label:"🎂 Data de Nascimento",value:selectedCliente.data_nascimento},
                   {label:"Endereço",value:selectedCliente.endereco},
+                  {label:"CEP",value:selectedCliente.cep},
                   {label:"Bairro",value:selectedCliente.bairro},
                   {label:"Cidade",value:selectedCliente.cidade},
                 ].map((f,i)=>(
