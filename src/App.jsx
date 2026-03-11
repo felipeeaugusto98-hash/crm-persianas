@@ -311,6 +311,43 @@ export default function CRM() {
     setSelected(att);
   };
 
+  const comissao = useMemo(() => {
+    const fechados = visitas.filter(v => v.status === "fechado");
+    const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0);
+    const totalVisitas = visitas.length;
+    const conversao = totalVisitas > 0 ? (fechados.length / totalVisitas) * 100 : 0;
+
+    // Base 10%
+    let pct = 10;
+
+    // Premissa 1: volume de vendas
+    if (totalVendas >= 120000) pct += 5;
+    else if (totalVendas >= 100000) pct += 4;
+    else if (totalVendas >= 80000) pct += 3;
+    else if (totalVendas >= 60000) pct += 2;
+    else if (totalVendas >= 40000) pct += 1;
+
+    // Premissa 2: taxa de conversão
+    if (conversao >= 90) pct += 5;
+    else if (conversao >= 80) pct += 4;
+    else if (conversao >= 70) pct += 3;
+    else if (conversao >= 60) pct += 2;
+    else if (conversao >= 50) pct += 1;
+
+    pct = Math.min(pct, 20); // máximo 20%
+
+    const bonus1 = totalVendas >= 120000 ? 5 : totalVendas >= 100000 ? 4 : totalVendas >= 80000 ? 3 : totalVendas >= 60000 ? 2 : totalVendas >= 40000 ? 1 : 0;
+    const bonus2 = conversao >= 90 ? 5 : conversao >= 80 ? 4 : conversao >= 70 ? 3 : conversao >= 60 ? 2 : conversao >= 50 ? 1 : 0;
+
+    return {
+      pct, totalVendas, conversao: conversao.toFixed(1),
+      valorComissao: totalVendas * pct / 100,
+      bonus1, bonus2,
+      proximaFaixaVenda: totalVendas < 40000 ? 40000 : totalVendas < 60000 ? 60000 : totalVendas < 80000 ? 80000 : totalVendas < 100000 ? 100000 : totalVendas < 120000 ? 120000 : null,
+      proximaFaixaConv: conversao < 50 ? 50 : conversao < 60 ? 60 : conversao < 70 ? 70 : conversao < 80 ? 80 : conversao < 90 ? 90 : null,
+    };
+  }, [visitas]);
+
   const navTo = (v) => { setView(v); setMenuOpen(false); };
 
   const Field = ({label,value,color}) => (
@@ -388,6 +425,7 @@ export default function CRM() {
         <div className={`nav ${view==="dashboard"?"on":""}`} onClick={()=>navTo("dashboard")}>▦ Dashboard</div>
         <div className={`nav ${view==="lista"||view==="detalhe"?"on":""}`} onClick={()=>navTo("lista")}>📋 Visitas</div>
         <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>navTo("clientes")}>👥 Clientes</div>
+        <div className={`nav ${view==="comissao"?"on":""}`} onClick={()=>navTo("comissao")}>💰 Comissão</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:12,marginTop:16}} onClick={()=>navTo("novo")}>+ Nova Visita</button>
@@ -408,6 +446,7 @@ export default function CRM() {
         <div className={`nav ${view==="dashboard"?"on":""}`} onClick={()=>setView("dashboard")}>▦ Dashboard</div>
         <div className={`nav ${view==="lista"||view==="detalhe"?"on":""}`} onClick={()=>setView("lista")}>📋 Visitas</div>
         <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>setView("clientes")}>👥 Clientes</div>
+        <div className={`nav ${view==="comissao"?"on":""}`} onClick={()=>setView("comissao")}>💰 Comissão</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:11}} onClick={()=>{setForm({...empty});setView("novo")}}>+ Nova Visita</button>
@@ -421,7 +460,7 @@ export default function CRM() {
 
       {/* BOTTOM NAV mobile */}
       <div className="bottomnav">
-        {[{icon:"▦",label:"Dashboard",v:"dashboard"},{icon:"📋",label:"Visitas",v:"lista"},{icon:"👥",label:"Clientes",v:"clientes"},{icon:"✉",label:"Importar",v:"importar"},{icon:"＋",label:"Nova",v:"novo"}].map(b=>(
+        {[{icon:"▦",label:"Dashboard",v:"dashboard"},{icon:"📋",label:"Visitas",v:"lista"},{icon:"👥",label:"Clientes",v:"clientes"},{icon:"💰",label:"Comissão",v:"comissao"},{icon:"＋",label:"Nova",v:"novo"}].map(b=>(
           <button key={b.v} className={`bnav ${view===b.v?"on":""}`} onClick={()=>{if(b.v==="novo"){setForm({...empty});setView("novo")}else{setView(b.v)}}}>
             <span>{b.icon}</span>{b.label}
           </button>
@@ -649,6 +688,122 @@ export default function CRM() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* COMISSÃO */}
+        {view==="comissao" && (
+          <div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>💰 Minha Comissão</div>
+            <div style={{fontSize:12,color:"#555",marginBottom:24}}>Cálculo automático baseado nas vendas de {hoje.slice(3)}}</div>
+
+            {/* Card principal */}
+            <div style={{background:"linear-gradient(135deg,#1a1a10,#12120a)",border:"1px solid #c9a84c40",borderRadius:16,padding:28,marginBottom:20,position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#c9a84c,#f0d070)"}}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:20}} className="grid-4col">
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>Taxa de Comissão</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:48,color:"#c9a84c",lineHeight:1}}>{comissao.pct}%</div>
+                  <div style={{fontSize:11,color:"#555",marginTop:6}}>base 10% + {comissao.bonus1+comissao.bonus2}% bônus</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>Valor da Comissão</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:32,color:"#10b981",lineHeight:1}}>{fmt(comissao.valorComissao)}</div>
+                  <div style={{fontSize:11,color:"#555",marginTop:6}}>sobre {fmt(comissao.totalVendas)} vendidos</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>Conversão</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:40,color:"#8b5cf6",lineHeight:1}}>{comissao.conversao}%</div>
+                  <div style={{fontSize:11,color:"#555",marginTop:6}}>{visitas.filter(v=>v.status==="fechado").length} de {visitas.length} fechados</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}} className="grid-2col">
+              {/* Premissa 1 */}
+              <div className="card" style={{padding:20}}>
+                <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>📊 Premissa 1 — Volume de Vendas</div>
+                <div style={{fontSize:12,color:"#555",marginBottom:16}}>Bônus atual: <span style={{color:"#c9a84c",fontWeight:600}}>+{comissao.bonus1}%</span></div>
+                {[
+                  {label:"R$ 40k – R$ 60k",bonus:"+1%",min:40000,max:60000},
+                  {label:"R$ 60k – R$ 80k",bonus:"+2%",min:60000,max:80000},
+                  {label:"R$ 80k – R$ 100k",bonus:"+3%",min:80000,max:100000},
+                  {label:"R$ 100k – R$ 120k",bonus:"+4%",min:100000,max:120000},
+                  {label:"R$ 120k ou mais",bonus:"+5%",min:120000,max:Infinity},
+                ].map((f,i)=>{
+                  const ativa = comissao.totalVendas >= f.min && (f.max===Infinity || comissao.totalVendas < f.max);
+                  const passou = comissao.totalVendas >= f.max;
+                  const pct = f.max===Infinity ? Math.min(comissao.totalVendas/f.min*100,100) : Math.min(Math.max((comissao.totalVendas-f.min)/(f.max-f.min)*100,0),100);
+                  return (
+                    <div key={i} style={{marginBottom:10,padding:"10px 12px",borderRadius:8,background:ativa?"#c9a84c10":passou?"#10b98108":"#0d0d15",border:`1px solid ${ativa?"#c9a84c40":passou?"#10b98130":"#1e1e28"}`}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                        <span style={{fontSize:12,color:passou?"#10b981":ativa?"#c9a84c":"#666"}}>{f.label}</span>
+                        <span style={{fontSize:12,fontWeight:700,color:passou?"#10b981":ativa?"#c9a84c":"#555"}}>{f.bonus} {passou?"✓":ativa?"← você está aqui":""}</span>
+                      </div>
+                      {ativa && <div style={{background:"#1a1a24",borderRadius:4,height:5}}><div style={{width:`${pct}%`,height:"100%",background:"#c9a84c",borderRadius:4}}/></div>}
+                    </div>
+                  );
+                })}
+                {comissao.proximaFaixaVenda && (
+                  <div style={{marginTop:12,padding:"10px 12px",background:"#3b82f608",border:"1px solid #3b82f630",borderRadius:8,fontSize:11,color:"#3b82f6"}}>
+                    💡 Faltam {fmt(comissao.proximaFaixaVenda - comissao.totalVendas)} para o próximo bônus
+                  </div>
+                )}
+              </div>
+
+              {/* Premissa 2 */}
+              <div className="card" style={{padding:20}}>
+                <div style={{fontSize:11,color:"#8b5cf6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>🎯 Premissa 2 — Taxa de Conversão</div>
+                <div style={{fontSize:12,color:"#555",marginBottom:16}}>Bônus atual: <span style={{color:"#8b5cf6",fontWeight:600}}>+{comissao.bonus2}%</span></div>
+                {[
+                  {label:"Acima de 50%",bonus:"+1%",min:50,max:60},
+                  {label:"Acima de 60%",bonus:"+2%",min:60,max:70},
+                  {label:"Acima de 70%",bonus:"+3%",min:70,max:80},
+                  {label:"Acima de 80%",bonus:"+4%",min:80,max:90},
+                  {label:"Acima de 90%",bonus:"+5%",min:90,max:Infinity},
+                ].map((f,i)=>{
+                  const conv = parseFloat(comissao.conversao);
+                  const ativa = conv >= f.min && (f.max===Infinity || conv < f.max);
+                  const passou = conv >= f.max;
+                  const pct = f.max===Infinity ? Math.min(conv/f.min*100,100) : Math.min(Math.max((conv-f.min)/(f.max-f.min)*100,0),100);
+                  return (
+                    <div key={i} style={{marginBottom:10,padding:"10px 12px",borderRadius:8,background:ativa?"#8b5cf610":passou?"#10b98108":"#0d0d15",border:`1px solid ${ativa?"#8b5cf640":passou?"#10b98130":"#1e1e28"}`}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                        <span style={{fontSize:12,color:passou?"#10b981":ativa?"#8b5cf6":"#666"}}>{f.label}</span>
+                        <span style={{fontSize:12,fontWeight:700,color:passou?"#10b981":ativa?"#8b5cf6":"#555"}}>{f.bonus} {passou?"✓":ativa?"← você está aqui":""}</span>
+                      </div>
+                      {ativa && <div style={{background:"#1a1a24",borderRadius:4,height:5}}><div style={{width:`${pct}%`,height:"100%",background:"#8b5cf6",borderRadius:4}}/></div>}
+                    </div>
+                  );
+                })}
+                {comissao.proximaFaixaConv && (
+                  <div style={{marginTop:12,padding:"10px 12px",background:"#3b82f608",border:"1px solid #3b82f630",borderRadius:8,fontSize:11,color:"#3b82f6"}}>
+                    💡 Faltam {(comissao.proximaFaixaConv - parseFloat(comissao.conversao)).toFixed(1)}% de conversão para o próximo bônus
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Resumo */}
+            <div className="card" style={{padding:20}}>
+              <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>📋 Resumo do Cálculo</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {[
+                  {label:"Comissão base",valor:"10%",color:"#888"},
+                  {label:`Bônus vendas (${fmt(comissao.totalVendas)})`,valor:`+${comissao.bonus1}%`,color:"#c9a84c"},
+                  {label:`Bônus conversão (${comissao.conversao}%)`,valor:`+${comissao.bonus2}%`,color:"#8b5cf6"},
+                ].map((r,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #1a1a24"}}>
+                    <span style={{fontSize:13,color:"#aaa"}}>{r.label}</span>
+                    <span style={{fontSize:13,fontWeight:600,color:r.color}}>{r.valor}</span>
+                  </div>
+                ))}
+                <div style={{display:"flex",justifyContent:"space-between",padding:"12px 0",marginTop:4}}>
+                  <span style={{fontSize:15,fontWeight:700,color:"#e8e4dc"}}>Total</span>
+                  <span style={{fontFamily:"Georgia,serif",fontSize:20,color:"#c9a84c",fontWeight:700}}>{comissao.pct}% = {fmt(comissao.valorComissao)}</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
