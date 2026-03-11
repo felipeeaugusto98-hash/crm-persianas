@@ -1030,12 +1030,31 @@ export default function CRM() {
               <div style={{display:"flex",flexDirection:"column",gap:14}}>
                 <div className="card" style={{padding:18}}>
                   <div style={{fontSize:10,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>🏠 Contexto</div>
-                  {[{label:"Ambiente(s)",k:"ambiente"},{label:"Motivo",k:"motivoCompra"},{label:"Urgência",k:"urgencia"},{label:"Produtos",k:"produtos"},{label:"Medidas",k:"medidas"}].map(f=>(
+                  {[{label:"Ambiente(s)",k:"ambiente"},{label:"Motivo",k:"motivoCompra"},{label:"Urgência",k:"urgencia"},{label:"Medidas",k:"medidas"}].map(f=>(
                     <div key={f.k} style={{marginBottom:12}}>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
                       <input className="inp" value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
                     </div>
                   ))}
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:8}}>Produtos de Interesse</label>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                      {["Rolo","Rolo Motorizado","Double Vision","Double Vision Motorizado","Triple Shade","Triple Shade Motorizado","Cortina","Cortina Motorizada","Madeira","Madeira Motorizado","Alumínio","Alumínio Motorizado","Romana","Romana Motorizada"].map(p=>{
+                        const selecionados = (form.produtos||"").split(",").map(s=>s.trim()).filter(Boolean);
+                        const marcado = selecionados.includes(p);
+                        return (
+                          <label key={p} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:7,background:marcado?"#c9a84c15":"#0d0d15",border:`1px solid ${marcado?"#c9a84c40":"#1e1e28"}`,cursor:"pointer",fontSize:12,color:marcado?"#c9a84c":"#777",transition:"all .15s"}}>
+                            <input type="checkbox" checked={marcado} onChange={()=>{
+                              const nova = marcado ? selecionados.filter(s=>s!==p) : [...selecionados,p];
+                              setForm({...form,produtos:nova.join(", ")});
+                            }} style={{accentColor:"#c9a84c"}}/>
+                            {p}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {form.produtos && <div style={{fontSize:11,color:"#c9a84c",marginTop:8}}>✓ {form.produtos}</div>}
+                  </div>
                 </div>
                 <div className="card" style={{padding:18}}>
                   <div style={{fontSize:10,color:"#10b981",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>💰 Orçamento</div>
