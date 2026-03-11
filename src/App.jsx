@@ -669,7 +669,7 @@ export default function CRM() {
         {/* DETALHE */}
         {view==="detalhe" && selected && (
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
               <button className="btn bg" onClick={()=>setView("lista")}>←</button>
               <div style={{flex:1}}>
                 <div style={{fontFamily:"Georgia,serif",fontSize:20}}>{selected.cliente}</div>
@@ -677,6 +677,29 @@ export default function CRM() {
               </div>
               <button className="btn bg" onClick={()=>{setForm({...selected});setView("novo")}}>✎</button>
               <button className="btn bd" onClick={()=>excluir(selected.id)}>✕</button>
+            </div>
+
+            {/* WhatsApp Templates */}
+            <div className="card" style={{padding:14,marginBottom:14,borderColor:"#25d36640"}}>
+              <div style={{fontSize:10,color:"#25d366",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>💬 Enviar WhatsApp</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {[
+                  {label:"Confirmar Visita", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nPassando para confirmar sua visita agendada para *${selected.dataVisita} às ${selected.horaVisita}*.\n\nEstarei no endereço: ${selected.endereco}\n\nQualquer dúvida, estou à disposição!\n\nFelipe - Persianas em Casa`},
+                  {label:"Enviar Orçamento", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nSegue o orçamento conforme combinado:\n\n📦 Produtos: ${selected.produtos||"—"}\n🏠 Ambiente: ${selected.ambiente||"—"}\n💰 Valor: *${fmt(valorFinal(selected))}*${selected.desconto&&Number(selected.desconto)>0?`\n✅ Desconto aplicado: ${selected.desconto}%`:""}\n\nFico à disposição para qualquer dúvida!\n\nFelipe - Persianas em Casa`},
+                  {label:"Follow-up", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! Tudo bem? 😊\n\nPassando para saber se ficou alguma dúvida sobre o orçamento que enviei.\n\nEstou à disposição para ajudar!\n\nFelipe - Persianas em Casa`},
+                  {label:"Confirmar Instalação", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nPassando para confirmar a instalação agendada para *${selected.dataInstalacao||"—"}*.\n\nQualquer dúvida é só chamar!\n\nFelipe - Persianas em Casa`},
+                ].map(t=>{
+                  const tel = selected.telefone?.replace(/\D/g,"");
+                  const url = `https://wa.me/55${tel}?text=${encodeURIComponent(t.msg())}`;
+                  return (
+                    <a key={t.label} href={url} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                      <button className="sb" style={{color:"#25d366",borderColor:"#25d36640",background:"#25d36608",fontSize:12}}>
+                        💬 {t.label}
+                      </button>
+                    </a>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="card" style={{padding:14,marginBottom:14}}>
