@@ -532,10 +532,13 @@ export default function CRM() {
         <div className={`nav ${view==="dashboard"?"on":""}`} onClick={()=>navTo("dashboard")}>▦ Dashboard</div>
         <div className={`nav ${view==="lista"||view==="detalhe"?"on":""}`} onClick={()=>navTo("lista")}>📋 Visitas</div>
         <div className={`nav ${view==="calendario"?"on":""}`} onClick={()=>navTo("calendario")}>📅 Calendário</div>
+        <div className={`nav ${view==="rota"?"on":""}`} onClick={()=>navTo("rota")}>🗺️ Rota do Dia</div>
         <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>navTo("clientes")}>👥 Clientes</div>
         <div className={`nav ${view==="comissao"?"on":""}`} onClick={()=>navTo("comissao")}>💰 Comissão</div>
+        <div className={`nav ${view==="simulador"?"on":""}`} onClick={()=>navTo("simulador")}>🧮 Simulador</div>
         <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>navTo("cancelamentos")}>📊 Cancelamentos</div>
         <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>navTo("ocorrencias")}>🔧 Ocorrências</div>
+        <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>navTo("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:12,marginTop:16}} onClick={()=>navTo("novo")}>+ Nova Visita</button>
@@ -556,10 +559,13 @@ export default function CRM() {
         <div className={`nav ${view==="dashboard"?"on":""}`} onClick={()=>setView("dashboard")}>▦ Dashboard</div>
         <div className={`nav ${view==="lista"||view==="detalhe"?"on":""}`} onClick={()=>setView("lista")}>📋 Visitas</div>
         <div className={`nav ${view==="calendario"?"on":""}`} onClick={()=>setView("calendario")}>📅 Calendário</div>
+        <div className={`nav ${view==="rota"?"on":""}`} onClick={()=>setView("rota")}>🗺️ Rota do Dia</div>
         <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>setView("clientes")}>👥 Clientes</div>
         <div className={`nav ${view==="comissao"?"on":""}`} onClick={()=>setView("comissao")}>💰 Comissão</div>
+        <div className={`nav ${view==="simulador"?"on":""}`} onClick={()=>setView("simulador")}>🧮 Simulador</div>
         <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>setView("cancelamentos")}>📊 Cancelamentos</div>
         <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>setView("ocorrencias")}>🔧 Ocorrências</div>
+        <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>setView("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:11}} onClick={()=>{setForm({...empty});setView("novo")}}>+ Nova Visita</button>
@@ -1110,6 +1116,245 @@ export default function CRM() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ROTA DO DIA */}
+        {view==="rota" && (()=>{
+          const visitasHoje = visitas.filter(v=>v.dataVisita===hoje).sort((a,b)=>a.horaVisita?.localeCompare(b.horaVisita));
+          const enderecos = visitasHoje.map(v=>encodeURIComponent(v.endereco||"")).filter(Boolean);
+          const urlMaps = enderecos.length>0
+            ? `https://www.google.com/maps/dir/${enderecos.join("/")}`
+            : null;
+          const [checklist, setChecklist] = useState({trena:false,amostras:false,tablet:false,cartao:false,contrato:false,caneta:false,uniforme:false});
+          const itens = [{k:"trena",l:"📏 Trena"},{k:"amostras",l:"🎨 Amostras de tecido"},{k:"tablet",l:"📱 Tablet/celular carregado"},{k:"cartao",l:"💳 Cartão de visita"},{k:"contrato",l:"📄 Contrato/proposta"},{k:"caneta",l:"✏️ Caneta"},{k:"uniforme",l:"👔 Uniforme"}];
+          const prontos = Object.values(checklist).filter(Boolean).length;
+          return (
+            <div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>🗺️ Rota do Dia</div>
+              <div style={{fontSize:12,color:"#555",marginBottom:20}}>{hoje} · {visitasHoje.length} visita{visitasHoje.length!==1?"s":""}</div>
+
+              {/* Checklist de saída */}
+              <div className="card" style={{padding:18,marginBottom:16}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px"}}>✅ Checklist de Saída</div>
+                  <div style={{fontSize:12,color:prontos===itens.length?"#10b981":"#f59e0b",fontWeight:600}}>{prontos}/{itens.length} itens</div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {itens.map(({k,l})=>(
+                    <label key={k} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,background:checklist[k]?"#10b98110":"#0d0d15",border:`1px solid ${checklist[k]?"#10b98140":"#1e1e28"}`,cursor:"pointer",transition:"all .15s"}}>
+                      <input type="checkbox" checked={checklist[k]} onChange={()=>setChecklist({...checklist,[k]:!checklist[k]})} style={{accentColor:"#10b981",width:16,height:16}}/>
+                      <span style={{fontSize:13,color:checklist[k]?"#10b981":"#aaa"}}>{l}</span>
+                    </label>
+                  ))}
+                </div>
+                {prontos===itens.length && <div style={{marginTop:12,padding:"10px",background:"#10b98115",border:"1px solid #10b98130",borderRadius:8,textAlign:"center",fontSize:13,color:"#10b981",fontWeight:600}}>🚀 Tudo pronto! Boa visita!</div>}
+              </div>
+
+              {/* Visitas do dia */}
+              <div className="card" style={{marginBottom:16}}>
+                {visitasHoje.length===0 && <div style={{padding:32,textAlign:"center",color:"#444",fontSize:13}}>Nenhuma visita agendada para hoje</div>}
+                {visitasHoje.map((v,i)=>(
+                  <div key={v.id} style={{padding:"14px 16px",borderBottom:"1px solid #1a1a24"}}>
+                    <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
+                      <div style={{width:28,height:28,borderRadius:"50%",background:"#c9a84c20",border:"1px solid #c9a84c40",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#c9a84c",fontWeight:700,flexShrink:0}}>{i+1}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:14,fontWeight:600}}>{v.cliente}</div>
+                        <div style={{fontSize:12,color:"#c9a84c",marginTop:2}}>🕐 {v.horaVisita}</div>
+                        <div style={{fontSize:11,color:"#555",marginTop:2}}>📍 {v.endereco}</div>
+                        <div style={{fontSize:11,color:"#777",marginTop:1}}>🏠 {v.ambiente} · {v.produtos||"—"}</div>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v.endereco||"")}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                          <button className="sb" style={{color:"#3b82f6",borderColor:"#3b82f640",fontSize:11}}>📍 Maps</button>
+                        </a>
+                        <a href={`https://wa.me/55${v.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${v.cliente?.split(" ")[0]}! Estou a caminho para nossa visita às ${v.horaVisita}. Até logo! 😊\n\nFelipe - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                          <button className="sb" style={{color:"#25d366",borderColor:"#25d36640",fontSize:11}}>💬 Aviso</button>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Botão rota completa */}
+              {urlMaps && (
+                <a href={urlMaps} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                  <button className="btn bp" style={{width:"100%",padding:14,fontSize:15}}>🗺️ Abrir Rota Completa no Google Maps</button>
+                </a>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* SIMULADOR DE DESCONTO */}
+        {view==="simulador" && (()=>{
+          const [simValor, setSimValor] = useState("");
+          const [simDesc, setSimDesc] = useState(0);
+          const pct = comissao.pct;
+          const vFinal = simValor ? Number(simValor)*(1-simDesc/100) : 0;
+          const comissaoSim = vFinal * pct / 100;
+          const faixas = [0,5,10,15,20];
+          return (
+            <div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>🧮 Simulador de Desconto</div>
+              <div style={{fontSize:12,color:"#555",marginBottom:20}}>Calcule o impacto do desconto na sua comissão em tempo real</div>
+
+              <div className="card" style={{padding:24,marginBottom:16}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}} className="grid-2col">
+                  <div>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:8}}>Valor do Orçamento (R$)</label>
+                    <input className="inp" type="number" placeholder="Ex: 15000" value={simValor} onChange={e=>setSimValor(e.target.value)} style={{fontSize:18}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:8}}>Desconto: <span style={{color:"#ef4444",fontWeight:600}}>{simDesc}%</span></label>
+                    <input type="range" min={0} max={30} value={simDesc} onChange={e=>setSimDesc(Number(e.target.value))} style={{width:"100%",accentColor:"#c9a84c",marginTop:8}}/>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#444",marginTop:4}}><span>0%</span><span>15%</span><span>30%</span></div>
+                  </div>
+                </div>
+
+                {simValor && (
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
+                    <div style={{padding:16,borderRadius:10,background:"#0d0d15",border:"1px solid #1e1e28",textAlign:"center"}}>
+                      <div style={{fontSize:10,color:"#555",marginBottom:6}}>VALOR FINAL</div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#e8e4dc"}}>{fmt(vFinal)}</div>
+                    </div>
+                    <div style={{padding:16,borderRadius:10,background:"#c9a84c10",border:"1px solid #c9a84c30",textAlign:"center"}}>
+                      <div style={{fontSize:10,color:"#c9a84c",marginBottom:6}}>SUA COMISSÃO ({pct}%)</div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#c9a84c"}}>{fmt(comissaoSim)}</div>
+                    </div>
+                    <div style={{padding:16,borderRadius:10,background:simDesc>0?"#ef444410":"#10b98110",border:`1px solid ${simDesc>0?"#ef444430":"#10b98130"}`,textAlign:"center"}}>
+                      <div style={{fontSize:10,color:simDesc>0?"#ef4444":"#10b981",marginBottom:6}}>DESCONTO DADO</div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:20,color:simDesc>0?"#ef4444":"#10b981"}}>{fmt(Number(simValor)*simDesc/100)}</div>
+                    </div>
+                  </div>
+                )}
+
+                {simValor && (
+                  <div>
+                    <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>Comparativo de Descontos</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {faixas.map(d=>{
+                        const vf=Number(simValor)*(1-d/100);
+                        const com=vf*pct/100;
+                        const isAtual=d===simDesc;
+                        return (
+                          <div key={d} onClick={()=>setSimDesc(d)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderRadius:8,background:isAtual?"#c9a84c15":"#0d0d15",border:`1px solid ${isAtual?"#c9a84c":"#1e1e28"}`,cursor:"pointer",transition:"all .15s"}}>
+                            <span style={{fontSize:13,color:isAtual?"#c9a84c":"#aaa",fontWeight:isAtual?700:400}}>{d}% desconto</span>
+                            <div style={{textAlign:"right"}}>
+                              <div style={{fontSize:13,color:"#e8e4dc"}}>{fmt(vf)}</div>
+                              <div style={{fontSize:11,color:"#10b981"}}>comissão: {fmt(com)}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* PAINEL GERENTE */}
+        {view==="gerente" && (()=>{
+          const fechados = visitas.filter(v=>v.status==="fechado");
+          const perdidos = visitas.filter(v=>v.status==="perdido");
+          const totalVisitas = visitas.length;
+          const receitaTotal = fechados.reduce((a,v)=>a+valorFinal(v),0);
+          const ticketMedio = fechados.length>0?receitaTotal/fechados.length:0;
+          const conversaoG = totalVisitas>0?Math.round(fechados.length/totalVisitas*100):0;
+          return (
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,flexWrap:"wrap",gap:10}}>
+                <div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22}}>👔 Painel do Gerente</div>
+                  <div style={{fontSize:12,color:"#555",marginTop:2}}>Resumo executivo — {hoje.slice(3)}</div>
+                </div>
+                <button className="btn bg" style={{color:"#c9a84c",borderColor:"#c9a84c40",fontSize:12}} onClick={()=>{
+                  const txt = `RELATÓRIO MENSAL — ${hoje.slice(3)}\nFelipe Augusto de Oliveira Pereira\n${"─".repeat(40)}\n\nVISITAS\nTotal: ${totalVisitas} | Fechadas: ${fechados.length} | Perdidas: ${perdidos.length}\nConversão: ${conversaoG}%\n\nRECEITA\nTotal vendido: ${fmt(receitaTotal)}\nTicket médio: ${fmt(ticketMedio)}\nMeta mensal: ${fmt(META_MENSAL)}\nAtingimento: ${Math.round(receitaTotal/META_MENSAL*100)}%\n\nCOMISSÃO\nPercentual: ${comissao.pct}%\nValor: ${fmt(comissao.valorComissao)}\n\n${"─".repeat(40)}\nFECHAMENTOS:\n${fechados.map((v,i)=>`${i+1}. ${v.cliente} — ${fmt(valorFinal(v))}`).join("\n")}`;
+                  navigator.clipboard.writeText(txt).then(()=>alert("Copiado!"));
+                }}>📋 Copiar Relatório</button>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,margin:"20px 0"}} className="grid-4col">
+                {[
+                  {l:"Visitas Realizadas",v:totalVisitas,c:"#3b82f6"},
+                  {l:"Vendas Fechadas",v:fechados.length,c:"#10b981"},
+                  {l:"Taxa de Conversão",v:`${conversaoG}%`,c:"#c9a84c"},
+                  {l:"Receita Total",v:fmt(receitaTotal),c:"#10b981"},
+                ].map((k,i)=>(
+                  <div key={i} className="sc">
+                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>{k.l}</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:i===3?16:24,color:k.c}}>{k.v}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}} className="grid-2col">
+                <div className="card" style={{padding:18}}>
+                  <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>🎯 Atingimento de Meta</div>
+                  {[{l:"Meta Mensal",meta:META_MENSAL,atual:receitaTotal},{l:"Meta Semanal",meta:META_MENSAL/4,atual:stats.semana.receita}].map(({l,meta,atual})=>{
+                    const p=Math.min(Math.round(atual/meta*100),100);
+                    const c=p>=100?"#10b981":p>=60?"#c9a84c":"#ef4444";
+                    return (
+                      <div key={l} style={{marginBottom:14}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                          <span style={{fontSize:12,color:"#aaa"}}>{l}</span>
+                          <span style={{fontSize:12,color:c,fontWeight:600}}>{p}% — {fmt(atual)}</span>
+                        </div>
+                        <div style={{height:8,background:"#1a1a24",borderRadius:4}}>
+                          <div style={{height:8,borderRadius:4,background:c,width:`${p}%`,transition:"width .8s"}}/>
+                        </div>
+                        <div style={{fontSize:10,color:"#444",marginTop:4}}>Meta: {fmt(meta)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="card" style={{padding:18}}>
+                  <div style={{fontSize:11,color:"#10b981",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>💰 Comissão do Período</div>
+                  <div style={{textAlign:"center",padding:"10px 0"}}>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:40,color:"#10b981",lineHeight:1}}>{fmt(comissao.valorComissao)}</div>
+                    <div style={{fontSize:14,color:"#555",marginTop:4}}>percentual: {comissao.pct}%</div>
+                    <div style={{marginTop:16,display:"flex",flexDirection:"column",gap:6}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}><span style={{color:"#777"}}>Base</span><span style={{color:"#888"}}>10%</span></div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}><span style={{color:"#777"}}>Bônus vendas</span><span style={{color:"#c9a84c"}}>+{comissao.bonus1}%</span></div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}><span style={{color:"#777"}}>Bônus conversão</span><span style={{color:"#8b5cf6"}}>+{comissao.bonus2}%</span></div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,paddingTop:8,borderTop:"1px solid #1a1a24"}}><span style={{color:"#e8e4dc",fontWeight:600}}>Total</span><span style={{color:"#10b981",fontWeight:700}}>{comissao.pct}%</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card" style={{padding:18}}>
+                <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>📋 Fechamentos do Mês</div>
+                <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr",gap:8,padding:"8px 12px",background:"#0d0d15",borderRadius:6,marginBottom:8}}>
+                  {["Cliente","Produtos","Valor","Comissão"].map(h=>(
+                    <div key={h} style={{fontSize:10,color:"#444",textTransform:"uppercase",letterSpacing:"1px"}}>{h}</div>
+                  ))}
+                </div>
+                {fechados.length===0 && <div style={{padding:20,textAlign:"center",color:"#444",fontSize:13}}>Nenhuma venda fechada</div>}
+                {fechados.map(v=>(
+                  <div key={v.id} style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr",gap:8,padding:"11px 12px",borderBottom:"1px solid #1a1a24",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600}}>{v.cliente}</div>
+                      <div style={{fontSize:10,color:"#444"}}>{v.dataVisita}</div>
+                    </div>
+                    <div style={{fontSize:11,color:"#777"}}>{v.produtos||"—"}</div>
+                    <div style={{fontSize:13,color:"#c9a84c",fontWeight:600}}>{fmt(valorFinal(v))}</div>
+                    <div style={{fontSize:13,color:"#10b981",fontWeight:700}}>{fmt(valorFinal(v)*comissao.pct/100)}</div>
+                  </div>
+                ))}
+                {fechados.length>0 && (
+                  <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr",gap:8,padding:"12px",marginTop:4,background:"#10b98108",borderRadius:8,border:"1px solid #10b98130"}}>
+                    <div style={{fontSize:13,fontWeight:700,gridColumn:"span 2"}}>TOTAL</div>
+                    <div style={{fontSize:14,color:"#c9a84c",fontWeight:700}}>{fmt(receitaTotal)}</div>
+                    <div style={{fontSize:14,color:"#10b981",fontWeight:700}}>{fmt(comissao.valorComissao)}</div>
+                  </div>
+                )}
               </div>
             </div>
           );
