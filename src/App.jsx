@@ -236,6 +236,12 @@ export default function CRM() {
   const [tickets, setTickets] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_tickets")||"[]"); } catch{return [];} });
   const [formTicket, setFormTicket] = useState(null);
   const saveTickets = (list) => { setTickets(list); localStorage.setItem("crm_tickets", JSON.stringify(list)); };
+  const CATS_NOTA = ["💼 Trabalho","💡 Ideias","📞 Ligações","🎯 Metas","📦 Produtos","🔧 Pendências","📌 Geral"];
+  const emptyNota = {titulo:"", texto:"", categoria:"📌 Geral", fixada:false, data:hoje, cor:"1e1e28"};
+  const [notas, setNotas] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_notas")||"[]"); } catch{return [];} });
+  const [formNota, setFormNota] = useState(null);
+  const [filtroNota, setFiltroNota] = useState("Todas");
+  const saveNotas = (list) => { setNotas(list); localStorage.setItem("crm_notas", JSON.stringify(list)); };
 
   useEffect(() => { carregar(); }, []);
 
@@ -546,6 +552,7 @@ export default function CRM() {
         <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>navTo("cancelamentos")}>📊 Cancelamentos</div>
         <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>navTo("ocorrencias")}>🔧 Ocorrências</div>
         <div className={`nav ${view==="tickets"?"on":""}`} onClick={()=>navTo("tickets")}>🎫 Tickets</div>
+        <div className={`nav ${view==="notas"?"on":""}`} onClick={()=>navTo("notas")}>📝 Notas</div>
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>navTo("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
@@ -574,6 +581,7 @@ export default function CRM() {
         <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>setView("cancelamentos")}>📊 Cancelamentos</div>
         <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>setView("ocorrencias")}>🔧 Ocorrências</div>
         <div className={`nav ${view==="tickets"?"on":""}`} onClick={()=>setView("tickets")}>🎫 Tickets</div>
+        <div className={`nav ${view==="notas"?"on":""}`} onClick={()=>setView("notas")}>📝 Notas</div>
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>setView("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
@@ -1393,6 +1401,130 @@ export default function CRM() {
                             saveTickets(tickets.filter((_,idx)=>idx!==i));
                           }}>🗑️ Excluir</button>
                         </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* NOTAS */}
+        {view==="notas" && (()=>{
+          const CORES = [
+            {label:"Escuro",  val:"1e1e28"},
+            {label:"Azul",    val:"0d1b3e"},
+            {label:"Verde",   val:"0a2a1a"},
+            {label:"Dourado", val:"2a1f00"},
+            {label:"Roxo",    val:"1a0a2e"},
+            {label:"Vermelho",val:"2a0a0a"},
+          ];
+          const notasFiltradas = notas
+            .filter(n => filtroNota==="Todas" || n.categoria===filtroNota)
+            .sort((a,b) => (b.fixada?1:0)-(a.fixada?1:0));
+
+          const salvarNota = () => {
+            if (!formNota.titulo.trim()) return;
+            let lista;
+            if (formNota._editIdx !== undefined) {
+              lista = notas.map((n,i) => i===formNota._editIdx ? {...formNota} : n);
+            } else {
+              lista = [{...formNota, data:hoje}, ...notas];
+            }
+            saveNotas(lista);
+            setFormNota(null);
+          };
+
+          return (
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+                <div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22}}>📝 Notas</div>
+                  <div style={{fontSize:12,color:"#555",marginTop:2}}>{notas.filter(n=>n.fixada).length} fixada{notas.filter(n=>n.fixada).length!==1?"s":""} · {notas.length} no total</div>
+                </div>
+                <button className="btn bp" onClick={()=>setFormNota({...emptyNota})}>+ Nova Nota</button>
+              </div>
+
+              {/* Filtro por categoria */}
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
+                {["Todas",...CATS_NOTA].map(c=>(
+                  <button key={c} onClick={()=>setFiltroNota(c)} style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${filtroNota===c?"#c9a84c":"#2a2a3a"}`,background:filtroNota===c?"#c9a84c20":"transparent",color:filtroNota===c?"#c9a84c":"#777",fontSize:11,cursor:"pointer",transition:"all .15s"}}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+
+              {/* Formulário */}
+              {formNota && (
+                <div className="card" style={{padding:20,marginBottom:20,border:"1px solid #c9a84c40"}}>
+                  <div style={{fontSize:13,color:"#c9a84c",fontWeight:700,marginBottom:14}}>
+                    {formNota._editIdx!==undefined?"✏️ Editar Nota":"🆕 Nova Nota"}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Título *</label>
+                      <input className="inp" placeholder="Ex: Ideias para fechar mais..." value={formNota.titulo} onChange={e=>setFormNota({...formNota,titulo:e.target.value})}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Categoria</label>
+                      <select className="inp" value={formNota.categoria} onChange={e=>setFormNota({...formNota,categoria:e.target.value})}>
+                        {CATS_NOTA.map(c=><option key={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Conteúdo da nota</label>
+                    <textarea className="inp" rows={5} style={{resize:"vertical",fontFamily:"monospace",fontSize:13}} placeholder="Escreva aqui..." value={formNota.texto} onChange={e=>setFormNota({...formNota,texto:e.target.value})}/>
+                  </div>
+                  <div style={{marginBottom:16}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:8}}>Cor da nota</label>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {CORES.map(c=>(
+                        <div key={c.val} onClick={()=>setFormNota({...formNota,cor:c.val})} style={{width:28,height:28,borderRadius:8,background:`#${c.val}`,border:`2px solid ${formNota.cor===c.val?"#c9a84c":"#333"}`,cursor:"pointer",transition:"all .15s"}} title={c.label}/>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:16}}>
+                    <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                      <input type="checkbox" checked={formNota.fixada} onChange={e=>setFormNota({...formNota,fixada:e.target.checked})} style={{accentColor:"#c9a84c",width:16,height:16}}/>
+                      <span style={{fontSize:13,color:"#aaa"}}>📌 Fixar esta nota no topo</span>
+                    </label>
+                  </div>
+                  <div style={{display:"flex",gap:10}}>
+                    <button className="btn bp" onClick={salvarNota}>💾 Salvar</button>
+                    <button className="btn bg" style={{color:"#777",borderColor:"#333"}} onClick={()=>setFormNota(null)}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Grid de notas */}
+              {notasFiltradas.length===0 && (
+                <div style={{padding:40,textAlign:"center",color:"#444",fontSize:13}}>
+                  <div style={{fontSize:36,marginBottom:8}}>📝</div>
+                  Nenhuma nota encontrada
+                </div>
+              )}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14}}>
+                {notasFiltradas.map((n,i)=>{
+                  const idxReal = notas.indexOf(n);
+                  return (
+                    <div key={i} style={{background:`#${n.cor}`,border:`1px solid ${n.fixada?"#c9a84c40":"#2a2a3a"}`,borderRadius:12,padding:16,position:"relative",transition:"all .2s"}}>
+                      {n.fixada && <div style={{position:"absolute",top:10,right:12,fontSize:14}}>📌</div>}
+                      <div style={{fontSize:11,color:"#c9a84c",marginBottom:6}}>{n.categoria}</div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:"#e8e4dc",marginBottom:8,paddingRight:20}}>{n.titulo}</div>
+                      {n.texto && <div style={{fontSize:12,color:"#aaa",lineHeight:1.6,whiteSpace:"pre-wrap",marginBottom:12,maxHeight:120,overflow:"hidden"}}>{n.texto}</div>}
+                      <div style={{fontSize:10,color:"#444",marginBottom:10}}>📅 {n.data}</div>
+                      <div style={{display:"flex",gap:8}}>
+                        <button className="sb" style={{fontSize:11,flex:1}} onClick={()=>setFormNota({...n,_editIdx:idxReal})}>✏️ Editar</button>
+                        <button className="sb" style={{fontSize:11,color:n.fixada?"#f59e0b":"#aaa",borderColor:n.fixada?"#f59e0b40":"#333"}} onClick={()=>{
+                          const lista = notas.map((nt,idx)=>idx===idxReal?{...nt,fixada:!nt.fixada}:nt);
+                          saveNotas(lista);
+                        }}>📌</button>
+                        <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={()=>{
+                          if(!window.confirm("Excluir esta nota?")) return;
+                          saveNotas(notas.filter((_,idx)=>idx!==idxReal));
+                        }}>🗑️</button>
                       </div>
                     </div>
                   );
