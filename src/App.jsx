@@ -1846,6 +1846,22 @@ export default function CRM() {
                 </div>
               </div>
             </div>
+
+            {/* Botão salvar como cliente */}
+            <div style={{marginTop:16,padding:"14px 16px",background:"#0d1b2a",border:"1px solid #3b82f640",borderRadius:12,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+              <div>
+                <div style={{fontSize:13,color:"#3b82f6",fontWeight:600}}>👥 Salvar como Cliente</div>
+                <div style={{fontSize:11,color:"#555",marginTop:2}}>Adiciona {selected.cliente} à sua base de clientes</div>
+              </div>
+              <button className="btn" style={{background:"#3b82f620",border:"1px solid #3b82f640",color:"#3b82f6",padding:"9px 18px",fontSize:13}} onClick={async ()=>{
+                const jaExiste = clientes.find(c=>c.telefone===selected.telefone||c.nome===selected.cliente);
+                if(jaExiste){ alert(`${selected.cliente} já está cadastrado como cliente!`); return; }
+                if(!window.confirm(`Cadastrar ${selected.cliente} como cliente?`)) return;
+                await dbClientes.insert({nome:selected.cliente,telefone:selected.telefone,email:selected.email||"",endereco:selected.endereco||"",bairro:"",cidade:"",observacoes:`Origem: visita em ${selected.dataVisita}`,origem:"Persianas em Casa",cpf:"",dataNascimento:"",cep:""});
+                const c = await dbClientes.get(); setClientes(c);
+                alert(`✅ ${selected.cliente} adicionado à base de clientes!`);
+              }}>👥 Cadastrar Cliente</button>
+            </div>
           </div>
         )}
 
