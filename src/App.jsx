@@ -222,6 +222,9 @@ export default function CRM() {
   const [filtro, setFiltro] = useState("todos");
   const [search, setSearch] = useState("");
   const [searchCliente, setSearchCliente] = useState("");
+  const [calMes, setCalMes] = useState(new Date().getMonth());
+  const [calAno, setCalAno] = useState(new Date().getFullYear());
+  const [diaSelected, setDiaSelected] = useState(null);
 
   useEffect(() => { carregar(); }, []);
 
@@ -474,14 +477,10 @@ export default function CRM() {
 
         {/* CALENDÁRIO */}
         {view==="calendario" && (() => {
-          const agora = new Date();
-          const [calMes, setCalMes] = useState(agora.getMonth());
-          const [calAno, setCalAno] = useState(agora.getFullYear());
-          const [diaSelected, setDiaSelected] = useState(null);
-
           const primeiroDia = new Date(calAno, calMes, 1).getDay();
           const diasNoMes = new Date(calAno, calMes+1, 0).getDate();
           const nomeMes = new Date(calAno, calMes).toLocaleString('pt-BR',{month:'long',year:'numeric'});
+          const agora = new Date();
 
           const visitasDoDia = (dia) => {
             const d = String(dia).padStart(2,'0');
@@ -497,14 +496,12 @@ export default function CRM() {
               <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>📅 Calendário de Visitas</div>
               <div style={{fontSize:12,color:"#555",marginBottom:20}}>Visualize suas visitas por dia</div>
 
-              {/* Navegação mês */}
               <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:20}}>
                 <button className="btn bg" style={{padding:"8px 16px"}} onClick={()=>{if(calMes===0){setCalMes(11);setCalAno(calAno-1)}else setCalMes(calMes-1);setDiaSelected(null)}}>←</button>
                 <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#c9a84c",textTransform:"capitalize",flex:1,textAlign:"center"}}>{nomeMes}</div>
                 <button className="btn bg" style={{padding:"8px 16px"}} onClick={()=>{if(calMes===11){setCalMes(0);setCalAno(calAno+1)}else setCalMes(calMes+1);setDiaSelected(null)}}>→</button>
               </div>
 
-              {/* Grade calendário */}
               <div className="card" style={{padding:16,marginBottom:16}}>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:8}}>
                   {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map(d=>(
@@ -515,45 +512,43 @@ export default function CRM() {
                   {Array(primeiroDia).fill(null).map((_,i)=><div key={`e${i}`}/>)}
                   {Array(diasNoMes).fill(null).map((_,i)=>{
                     const dia = i+1;
-                    const visitasDia = visitasDoDia(dia);
+                    const vsDia = visitasDoDia(dia);
                     const isHoje = dia===agora.getDate() && calMes===agora.getMonth() && calAno===agora.getFullYear();
                     const isSel = diaSelected===dia;
-                    const temVisita = visitasDia.length > 0;
                     return (
                       <div key={dia} onClick={()=>setDiaSelected(isSel?null:dia)} style={{
-                        minHeight:52,padding:"6px 4px",borderRadius:8,cursor:"pointer",
+                        minHeight:56,padding:"6px 4px",borderRadius:8,cursor:"pointer",
                         background:isSel?"#c9a84c20":isHoje?"#3b82f610":"#0d0d15",
                         border:`1px solid ${isSel?"#c9a84c":isHoje?"#3b82f640":"#1e1e28"}`,
                         transition:"all .15s"
                       }}>
                         <div style={{fontSize:12,fontWeight:isHoje?700:400,color:isHoje?"#3b82f6":isSel?"#c9a84c":"#aaa",marginBottom:3}}>{dia}</div>
-                        {visitasDia.slice(0,3).map((v,vi)=>(
-                          <div key={vi} style={{fontSize:9,padding:"1px 4px",borderRadius:3,marginBottom:1,
+                        {vsDia.slice(0,2).map((v,vi)=>(
+                          <div key={vi} style={{fontSize:9,padding:"2px 4px",borderRadius:3,marginBottom:2,
                             background:STATUS[v.status]?.bg,color:STATUS[v.status]?.color,
                             overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>
                             {v.horaVisita} {v.cliente?.split(" ")[0]}
                           </div>
                         ))}
-                        {visitasDia.length>3 && <div style={{fontSize:9,color:"#555"}}>+{visitasDia.length-3}</div>}
+                        {vsDia.length>2 && <div style={{fontSize:9,color:"#555"}}>+{vsDia.length-2}</div>}
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Detalhe do dia selecionado */}
               {diaSelected && (
                 <div className="card" style={{padding:18}}>
                   <div style={{fontSize:13,color:"#c9a84c",fontWeight:600,marginBottom:12}}>
                     {String(diaSelected).padStart(2,'0')}/{String(calMes+1).padStart(2,'0')}/{calAno} — {visitasSelecionadas.length} visita{visitasSelecionadas.length!==1?"s":""}
                   </div>
-                  {visitasSelecionadas.length===0 && <div style={{fontSize:13,color:"#444"}}>Nenhuma visita neste dia.</div>}
+                  {visitasSelecionadas.length===0 && <div style={{fontSize:13,color:"#444",marginBottom:12}}>Nenhuma visita neste dia.</div>}
                   {visitasSelecionadas.map(v=>(
                     <div key={v.id} style={{padding:"12px",borderRadius:8,background:"#0d0d15",border:"1px solid #1e1e28",marginBottom:8,cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                         <div>
                           <div style={{fontSize:14,fontWeight:600}}>{v.cliente}</div>
-                          <div style={{fontSize:11,color:"#555",marginTop:2}}>{v.horaVisita} · {v.endereco?.slice(0,40)} · {v.ambiente}</div>
+                          <div style={{fontSize:11,color:"#555",marginTop:2}}>{v.horaVisita} · {v.ambiente}</div>
                         </div>
                         <span className="tag" style={{background:STATUS[v.status]?.bg,color:STATUS[v.status]?.color}}>{STATUS[v.status]?.icon} {STATUS[v.status]?.label}</span>
                       </div>
