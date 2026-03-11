@@ -22,7 +22,7 @@ const db = {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/visitas`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ cliente: v.cliente, telefone: v.telefone, endereco: v.endereco, email: v.email, data_visita: v.dataVisita, hora_visita: v.horaVisita, op_id: v.opId, ambiente: v.ambiente, motivo_compra: v.motivoCompra, urgencia: v.urgencia, produtos: v.produtos, medidas: v.medidas, observacoes: v.observacoes, valor_orcamento: v.valorOrcamento, desconto: v.desconto, data_instalacao: v.dataInstalacao, status: v.status, historico: v.historico, data_criacao: v.dataCriacao })
+      body: JSON.stringify({ cliente: v.cliente, telefone: v.telefone, endereco: v.endereco, email: v.email, data_visita: v.dataVisita, hora_visita: v.horaVisita, op_id: v.opId, ambiente: v.ambiente, motivo_compra: v.motivoCompra, urgencia: v.urgencia, produtos: v.produtos, medidas: v.medidas, observacoes: v.observacoes, valor_orcamento: v.valorOrcamento, desconto: v.desconto, data_instalacao: v.dataInstalacao, link_orcamento: v.linkOrcamento, status: v.status, historico: v.historico, data_criacao: v.dataCriacao })
     });
     return (await res.json())[0];
   },
@@ -30,7 +30,7 @@ const db = {
     await fetch(`${SUPABASE_URL}/rest/v1/visitas?id=eq.${id}`, {
       method: "PATCH",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ cliente: v.cliente, telefone: v.telefone, endereco: v.endereco, email: v.email, data_visita: v.dataVisita, hora_visita: v.horaVisita, op_id: v.opId, ambiente: v.ambiente, motivo_compra: v.motivoCompra, urgencia: v.urgencia, produtos: v.produtos, medidas: v.medidas, observacoes: v.observacoes, valor_orcamento: v.valorOrcamento, desconto: v.desconto, data_instalacao: v.dataInstalacao, status: v.status, historico: v.historico, data_criacao: v.dataCriacao })
+      body: JSON.stringify({ cliente: v.cliente, telefone: v.telefone, endereco: v.endereco, email: v.email, data_visita: v.dataVisita, hora_visita: v.horaVisita, op_id: v.opId, ambiente: v.ambiente, motivo_compra: v.motivoCompra, urgencia: v.urgencia, produtos: v.produtos, medidas: v.medidas, observacoes: v.observacoes, valor_orcamento: v.valorOrcamento, desconto: v.desconto, data_instalacao: v.dataInstalacao, link_orcamento: v.linkOrcamento, status: v.status, historico: v.historico, data_criacao: v.dataCriacao })
     });
   },
   async delete(id) {
@@ -82,7 +82,7 @@ const STATUS = {
   reagendar: { label: "Reagendar", color: "#f97316", bg: "#f9731615", icon: "🔄" },
 };
 
-const empty = { cliente:"", telefone:"", endereco:"", email:"", dataVisita:"", horaVisita:"", opId:"", ambiente:"", motivoCompra:"", urgencia:"", produtos:"", medidas:"", observacoes:"", valorOrcamento:"", desconto:"", dataInstalacao:"", status:"agendado", historico:[], dataCriacao: new Date().toLocaleDateString("pt-BR") };
+const empty = { cliente:"", telefone:"", endereco:"", email:"", dataVisita:"", horaVisita:"", opId:"", ambiente:"", motivoCompra:"", urgencia:"", produtos:"", medidas:"", observacoes:"", valorOrcamento:"", desconto:"", dataInstalacao:"", linkOrcamento:"", status:"agendado", historico:[], dataCriacao: new Date().toLocaleDateString("pt-BR") };
 const fmt = (v) => Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const valorFinal = (d) => { const v=Number(d.valorOrcamento||0); return v-(v*Number(d.desconto||0))/100; };
 
@@ -684,8 +684,8 @@ export default function CRM() {
               <div style={{fontSize:10,color:"#25d366",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>💬 Enviar WhatsApp</div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {[
-                  {label:"Confirmar Visita", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nPassando para confirmar sua visita agendada para *${selected.dataVisita} às ${selected.horaVisita}*.\n\nEstarei no endereço: ${selected.endereco}\n\nQualquer dúvida, estou à disposição!\n\nFelipe - Persianas em Casa`},
-                  {label:"Enviar Orçamento", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nSegue o orçamento conforme combinado:\n\n📦 Produtos: ${selected.produtos||"—"}\n🏠 Ambiente: ${selected.ambiente||"—"}\n💰 Valor: *${fmt(valorFinal(selected))}*${selected.desconto&&Number(selected.desconto)>0?`\n✅ Desconto aplicado: ${selected.desconto}%`:""}\n\nFico à disposição para qualquer dúvida!\n\nFelipe - Persianas em Casa`},
+                  {label:"Confirmar Visita", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! Tudo bem? 😊\n\nPrazer me chamo Felipe Augusto e sou consultor da Persianas em Casa!\n\nPassando para confirmar sua visita agendada para *${selected.dataVisita} às ${selected.horaVisita}*. Estarei no endereço: ${selected.endereco}`},
+                  {label:"Enviar Orçamento", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nSegue o orçamento conforme combinado:\n\n📦 Produtos: ${selected.produtos||"—"}\n🏠 Ambiente: ${selected.ambiente||"—"}\n💰 Valor: *${fmt(valorFinal(selected))}*${selected.desconto&&Number(selected.desconto)>0?`\n✅ Desconto aplicado: ${selected.desconto}%`:""}${selected.linkOrcamento?`\n\n🔗 Orçamento completo: ${selected.linkOrcamento}`:""}\n\nFico à disposição para qualquer dúvida!\n\nFelipe - Persianas em Casa`},
                   {label:"Follow-up", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! Tudo bem? 😊\n\nPassando para saber se ficou alguma dúvida sobre o orçamento que enviei.\n\nEstou à disposição para ajudar!\n\nFelipe - Persianas em Casa`},
                   {label:"Confirmar Instalação", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nPassando para confirmar a instalação agendada para *${selected.dataInstalacao||"—"}*.\n\nQualquer dúvida é só chamar!\n\nFelipe - Persianas em Casa`},
                 ].map(t=>{
@@ -727,6 +727,13 @@ export default function CRM() {
                 <Field label="Desconto" value={selected.desconto?`${selected.desconto}%`:null} color="#ef4444"/>
                 <Field label="Valor Final" value={selected.valorOrcamento?fmt(valorFinal(selected)):null} color="#10b981"/>
                 <Field label="Instalação" value={selected.dataInstalacao} color="#8b5cf6"/>
+                {selected.linkOrcamento && (
+                  <div style={{marginTop:8}}>
+                    <a href={selected.linkOrcamento} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                      <button className="btn bg" style={{width:"100%",color:"#8b5cf6",borderColor:"#8b5cf640",fontSize:12}}>🔗 Abrir Orçamento</button>
+                    </a>
+                  </div>
+                )}
               </div>
               <div className="card" style={{padding:16}}>
                 <div style={{fontSize:10,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>🏠 Contexto</div>
@@ -1191,6 +1198,10 @@ export default function CRM() {
                   <div style={{marginBottom:12}}>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Data de Instalação</label>
                     <input className="inp" placeholder="DD/MM/AAAA" value={form.dataInstalacao} onChange={e=>setForm({...form,dataInstalacao:e.target.value})}/>
+                  </div>
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:11,color:"#8b5cf6",display:"block",marginBottom:5}}>🔗 Link do Orçamento</label>
+                    <input className="inp" placeholder="Cole o link do seu sistema de orçamento..." value={form.linkOrcamento||""} onChange={e=>setForm({...form,linkOrcamento:e.target.value})} style={{borderColor:"#8b5cf640"}}/>
                   </div>
                   <div>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Status</label>
