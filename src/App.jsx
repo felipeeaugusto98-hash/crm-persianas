@@ -785,7 +785,7 @@ export default function CRM() {
             </div>
 
             {/* Resumo */}
-            <div className="card" style={{padding:20}}>
+            <div className="card" style={{padding:20,marginBottom:20}}>
               <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>📋 Resumo do Cálculo</div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {[
@@ -803,6 +803,55 @@ export default function CRM() {
                   <span style={{fontFamily:"Georgia,serif",fontSize:20,color:"#c9a84c",fontWeight:700}}>{comissao.pct}% = {fmt(comissao.valorComissao)}</span>
                 </div>
               </div>
+            </div>
+
+            {/* Fechamento Mensal */}
+            <div className="card" style={{padding:20}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+                <div>
+                  <div style={{fontSize:11,color:"#10b981",textTransform:"uppercase",letterSpacing:"1px",marginBottom:2}}>📄 Fechamento Mensal — Apresentação ao Gerente</div>
+                  <div style={{fontSize:11,color:"#444"}}>{visitas.filter(v=>v.status==="fechado").length} vendas fechadas · comissão de {comissao.pct}%</div>
+                </div>
+                <button className="btn bg" style={{fontSize:12,padding:"7px 14px",color:"#10b981",borderColor:"#10b98140"}} onClick={()=>{
+                  const fechados = visitas.filter(v=>v.status==="fechado");
+                  const linhas = fechados.map((v,i)=>`${i+1}. ${v.cliente} | Produtos: ${v.produtos||"—"} | Valor: ${fmt(valorFinal(v))} | Comissão (${comissao.pct}%): ${fmt(valorFinal(v)*comissao.pct/100)}`).join("\n");
+                  const texto = `FECHAMENTO MENSAL — ${hoje.slice(3)}\nFelipe Augusto de Oliveira Pereira\n${"─".repeat(50)}\n\n${linhas}\n\n${"─".repeat(50)}\nTotal vendido: ${fmt(comissao.totalVendas)}\nComissão (${comissao.pct}%): ${fmt(comissao.valorComissao)}\nConversão: ${comissao.conversao}%`;
+                  navigator.clipboard.writeText(texto).then(()=>alert("Copiado! Cole no e-mail ou WhatsApp para o gerente."));
+                }}>📋 Copiar Relatório</button>
+              </div>
+
+              {/* Cabeçalho tabela */}
+              <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr",gap:8,padding:"8px 12px",background:"#0d0d15",borderRadius:6,marginBottom:8}}>
+                {["Cliente","Produtos","Valor Venda","Desconto","Comissão"].map(h=>(
+                  <div key={h} style={{fontSize:10,color:"#444",textTransform:"uppercase",letterSpacing:"1px"}}>{h}</div>
+                ))}
+              </div>
+
+              {visitas.filter(v=>v.status==="fechado").length===0 && (
+                <div style={{padding:28,textAlign:"center",color:"#444",fontSize:13}}>Nenhuma venda fechada ainda este mês</div>
+              )}
+
+              {visitas.filter(v=>v.status==="fechado").map((v,i)=>(
+                <div key={v.id} style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr",gap:8,padding:"11px 12px",borderBottom:"1px solid #1a1a24",alignItems:"center"}}>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:600,color:"#e8e4dc"}}>{v.cliente}</div>
+                    <div style={{fontSize:10,color:"#555",marginTop:2}}>{v.dataVisita} · {v.ambiente}</div>
+                  </div>
+                  <div style={{fontSize:12,color:"#888"}}>{v.produtos||"—"}</div>
+                  <div style={{fontSize:13,color:"#c9a84c",fontWeight:600}}>{fmt(valorFinal(v))}</div>
+                  <div style={{fontSize:12,color:Number(v.desconto)>0?"#ef4444":"#555"}}>{v.desconto||0}%</div>
+                  <div style={{fontSize:13,color:"#10b981",fontWeight:700}}>{fmt(valorFinal(v)*comissao.pct/100)}</div>
+                </div>
+              ))}
+
+              {visitas.filter(v=>v.status==="fechado").length>0 && (
+                <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr",gap:8,padding:"14px 12px",marginTop:4,background:"#10b98108",borderRadius:8,border:"1px solid #10b98130"}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#e8e4dc",gridColumn:"span 2"}}>TOTAL</div>
+                  <div style={{fontSize:14,color:"#c9a84c",fontWeight:700}}>{fmt(comissao.totalVendas)}</div>
+                  <div/>
+                  <div style={{fontSize:14,color:"#10b981",fontWeight:700}}>{fmt(comissao.valorComissao)}</div>
+                </div>
+              )}
             </div>
           </div>
         )}
