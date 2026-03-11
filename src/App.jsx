@@ -41,6 +41,38 @@ const db = {
   }
 };
 
+const dbClientes = {
+  async get() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/clientes?order=created_at.desc`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    return await res.json();
+  },
+  async insert(c) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/clientes`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem })
+    });
+    return (await res.json())[0];
+  },
+  async update(id, c) {
+    await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem })
+    });
+  },
+  async delete(id) {
+    await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${id}`, {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+  }
+};
+
+const emptyCliente = { nome:"", telefone:"", email:"", endereco:"", bairro:"", cidade:"", observacoes:"", origem:"" };
+
 const STATUS = {
   agendado: { label: "Agendado", color: "#3b82f6", bg: "#3b82f615", icon: "📅" },
   visitado: { label: "Visita Realizada", color: "#f59e0b", bg: "#f59e0b15", icon: "🏠" },
@@ -175,25 +207,55 @@ function MedidorMeta({ receita }) {
 
 export default function CRM() {
   const [visitas, setVisitas] = useState([]);
+  const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({...empty});
+  const [formCliente, setFormCliente] = useState({...emptyCliente});
+  const [selectedCliente, setSelectedCliente] = useState(null);
   const [nota, setNota] = useState("");
   const [emailTexto, setEmailTexto] = useState("");
   const [importStep, setImportStep] = useState("colar");
   const [filtro, setFiltro] = useState("todos");
   const [search, setSearch] = useState("");
+  const [searchCliente, setSearchCliente] = useState("");
 
   useEffect(() => { carregar(); }, []);
 
   const carregar = async () => {
     setLoading(true);
-    try { setVisitas(await db.get()); } catch(e) { console.error(e); }
+    try {
+      const [v, c] = await Promise.all([db.get(), dbClientes.get()]);
+      setVisitas(v); setClientes(c);
+    } catch(e) { console.error(e); }
     setLoading(false);
   };
+
+  const salvarCliente = async () => {
+    if (!formCliente.nome) return;
+    setSaving(true);
+    try {
+      if (formCliente.id) await dbClientes.update(formCliente.id, formCliente);
+      else await dbClientes.insert(formCliente);
+      const c = await dbClientes.get(); setClientes(c);
+      setView("clientes");
+    } catch(e) { console.error(e); }
+    setSaving(false);
+  };
+
+  const excluirCliente = async (id) => {
+    if (!window.confirm("Excluir este cliente?")) return;
+    await dbClientes.delete(id);
+    const c = await dbClientes.get(); setClientes(c);
+    setView("clientes");
+  };
+
+  const clientesFiltrados = clientes.filter(c =>
+    searchCliente==="" || c.nome?.toLowerCase().includes(searchCliente.toLowerCase()) || c.telefone?.includes(searchCliente)
+  );
 
   const stats = useMemo(() => {
     const fechados = visitas.filter(v=>v.status==="fechado");
@@ -325,6 +387,7 @@ export default function CRM() {
         <div style={{fontFamily:"Georgia,serif",fontSize:17,color:"#c9a84c",fontWeight:700,padding:"4px 8px 16px",borderBottom:"1px solid #1a1a24",marginBottom:8}}>Persianas CRM</div>
         <div className={`nav ${view==="dashboard"?"on":""}`} onClick={()=>navTo("dashboard")}>▦ Dashboard</div>
         <div className={`nav ${view==="lista"||view==="detalhe"?"on":""}`} onClick={()=>navTo("lista")}>📋 Visitas</div>
+        <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>navTo("clientes")}>👥 Clientes</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:12,marginTop:16}} onClick={()=>navTo("novo")}>+ Nova Visita</button>
@@ -344,6 +407,7 @@ export default function CRM() {
         </div>
         <div className={`nav ${view==="dashboard"?"on":""}`} onClick={()=>setView("dashboard")}>▦ Dashboard</div>
         <div className={`nav ${view==="lista"||view==="detalhe"?"on":""}`} onClick={()=>setView("lista")}>📋 Visitas</div>
+        <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>setView("clientes")}>👥 Clientes</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:11}} onClick={()=>{setForm({...empty});setView("novo")}}>+ Nova Visita</button>
@@ -357,7 +421,7 @@ export default function CRM() {
 
       {/* BOTTOM NAV mobile */}
       <div className="bottomnav">
-        {[{icon:"▦",label:"Dashboard",v:"dashboard"},{icon:"📋",label:"Visitas",v:"lista"},{icon:"✉",label:"Importar",v:"importar"},{icon:"＋",label:"Nova",v:"novo"}].map(b=>(
+        {[{icon:"▦",label:"Dashboard",v:"dashboard"},{icon:"📋",label:"Visitas",v:"lista"},{icon:"👥",label:"Clientes",v:"clientes"},{icon:"✉",label:"Importar",v:"importar"},{icon:"＋",label:"Nova",v:"novo"}].map(b=>(
           <button key={b.v} className={`bnav ${view===b.v?"on":""}`} onClick={()=>{if(b.v==="novo"){setForm({...empty});setView("novo")}else{setView(b.v)}}}>
             <span>{b.icon}</span>{b.label}
           </button>
@@ -588,7 +652,127 @@ export default function CRM() {
           </div>
         )}
 
-        {/* FORMULÁRIO */}
+        {/* CLIENTES - LISTA */}
+        {view==="clientes" && (
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:2}}>👥 Clientes</div>
+                <div style={{fontSize:12,color:"#555"}}>{clientesFiltrados.length} cadastrados</div>
+              </div>
+              <button className="btn bp" onClick={()=>{setFormCliente({...emptyCliente});setView("novo-cliente")}}>+ Novo Cliente</button>
+            </div>
+            <input className="inp" placeholder="Buscar por nome ou telefone..." value={searchCliente} onChange={e=>setSearchCliente(e.target.value)} style={{marginBottom:14}}/>
+            <div className="card">
+              {clientesFiltrados.length===0 && <div style={{padding:36,textAlign:"center",color:"#444",fontSize:13}}>Nenhum cliente cadastrado</div>}
+              {clientesFiltrados.map(c=>(
+                <div key={c.id} style={{padding:"13px 16px",borderBottom:"1px solid #1a1a24",cursor:"pointer"}} onClick={()=>{setSelectedCliente(c);setView("detalhe-cliente")}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:600}}>{c.nome}</div>
+                      <div style={{fontSize:11,color:"#555",marginTop:2}}>{c.telefone}{c.cidade?` · ${c.cidade}`:""}</div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      {c.origem && <span style={{fontSize:11,color:"#c9a84c",background:"#c9a84c15",padding:"3px 10px",borderRadius:20}}>{c.origem}</span>}
+                      <div style={{fontSize:11,color:"#444",marginTop:4}}>{c.email}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* CLIENTES - DETALHE */}
+        {view==="detalhe-cliente" && selectedCliente && (
+          <div style={{maxWidth:700}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+              <button className="btn bg" onClick={()=>setView("clientes")}>←</button>
+              <div style={{flex:1}}>
+                <div style={{fontFamily:"Georgia,serif",fontSize:20}}>{selectedCliente.nome}</div>
+                <div style={{fontSize:11,color:"#555"}}>{selectedCliente.telefone}</div>
+              </div>
+              <button className="btn bg" onClick={()=>{setFormCliente({...selectedCliente});setView("novo-cliente")}}>✎ Editar</button>
+              <button className="btn bd" onClick={()=>excluirCliente(selectedCliente.id)}>✕</button>
+            </div>
+            <div className="card" style={{padding:20,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}} className="grid-2col">
+                {[
+                  {label:"Nome",value:selectedCliente.nome},
+                  {label:"Telefone",value:selectedCliente.telefone,color:"#c9a84c"},
+                  {label:"E-mail",value:selectedCliente.email},
+                  {label:"Origem",value:selectedCliente.origem,color:"#8b5cf6"},
+                  {label:"Endereço",value:selectedCliente.endereco},
+                  {label:"Bairro",value:selectedCliente.bairro},
+                  {label:"Cidade",value:selectedCliente.cidade},
+                ].map((f,i)=>(
+                  <div key={i} style={{padding:"8px 0",borderBottom:"1px solid #1e1e28"}}>
+                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:3}}>{f.label}</div>
+                    <div style={{fontSize:13,color:f.color||"#ccc"}}>{f.value||<span style={{color:"#444"}}>—</span>}</div>
+                  </div>
+                ))}
+              </div>
+              {selectedCliente.observacoes && (
+                <div style={{marginTop:16,padding:"12px",background:"#1a1a24",borderRadius:8}}>
+                  <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:6}}>Observações</div>
+                  <div style={{fontSize:13,color:"#bbb"}}>{selectedCliente.observacoes}</div>
+                </div>
+              )}
+            </div>
+            <button className="btn bp" style={{width:"100%",padding:12}} onClick={()=>{setForm({...empty,cliente:selectedCliente.nome,telefone:selectedCliente.telefone,email:selectedCliente.email,endereco:selectedCliente.endereco});setView("novo")}}>
+              + Criar Visita para este Cliente
+            </button>
+          </div>
+        )}
+
+        {/* CLIENTES - FORMULÁRIO */}
+        {view==="novo-cliente" && (
+          <div style={{maxWidth:700}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+              <button className="btn bg" onClick={()=>setView(formCliente.id?"detalhe-cliente":"clientes")}>←</button>
+              <div style={{fontFamily:"Georgia,serif",fontSize:20}}>{formCliente.id?"Editar Cliente":"Novo Cliente"}</div>
+            </div>
+            <div className="card" style={{padding:22}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}} className="grid-2col">
+                {[
+                  {label:"Nome *",k:"nome",col:2},
+                  {label:"Telefone",k:"telefone",col:1},
+                  {label:"E-mail",k:"email",col:1},
+                  {label:"Endereço",k:"endereco",col:2},
+                  {label:"Bairro",k:"bairro",col:1},
+                  {label:"Cidade",k:"cidade",col:1},
+                ].map(f=>(
+                  <div key={f.k} style={{marginBottom:12,gridColumn:`span ${f.col}`}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
+                    <input className="inp" value={formCliente[f.k]} onChange={e=>setFormCliente({...formCliente,[f.k]:e.target.value})}/>
+                  </div>
+                ))}
+                <div style={{marginBottom:12,gridColumn:"span 2"}}>
+                  <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Origem do Lead</label>
+                  <select className="inp" value={formCliente.origem} onChange={e=>setFormCliente({...formCliente,origem:e.target.value})}>
+                    <option value="">Selecionar...</option>
+                    <option>Persianas em Casa</option>
+                    <option>Indicação</option>
+                    <option>Instagram</option>
+                    <option>Google</option>
+                    <option>WhatsApp</option>
+                    <option>Outro</option>
+                  </select>
+                </div>
+                <div style={{marginBottom:12,gridColumn:"span 2"}}>
+                  <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Observações</label>
+                  <textarea className="inp" value={formCliente.observacoes} onChange={e=>setFormCliente({...formCliente,observacoes:e.target.value})} style={{minHeight:80}}/>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                <button className="btn bp" style={{padding:"12px 28px"}} onClick={salvarCliente} disabled={!formCliente.nome||saving}>{saving?"Salvando...":(formCliente.id?"Salvar":"Cadastrar")}</button>
+                <button className="btn bg" onClick={()=>setView(formCliente.id?"detalhe-cliente":"clientes")}>Cancelar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+
         {view==="novo"&&(
           <div>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
