@@ -430,6 +430,7 @@ export default function CRM() {
         <div className={`nav ${view==="calendario"?"on":""}`} onClick={()=>navTo("calendario")}>📅 Calendário</div>
         <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>navTo("clientes")}>👥 Clientes</div>
         <div className={`nav ${view==="comissao"?"on":""}`} onClick={()=>navTo("comissao")}>💰 Comissão</div>
+        <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>navTo("cancelamentos")}>📊 Cancelamentos</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:12,marginTop:16}} onClick={()=>navTo("novo")}>+ Nova Visita</button>
@@ -452,6 +453,7 @@ export default function CRM() {
         <div className={`nav ${view==="calendario"?"on":""}`} onClick={()=>setView("calendario")}>📅 Calendário</div>
         <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>setView("clientes")}>👥 Clientes</div>
         <div className={`nav ${view==="comissao"?"on":""}`} onClick={()=>setView("comissao")}>💰 Comissão</div>
+        <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>setView("cancelamentos")}>📊 Cancelamentos</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:11}} onClick={()=>{setForm({...empty});setView("novo")}}>+ Nova Visita</button>
@@ -671,6 +673,116 @@ export default function CRM() {
             </div>
           </div>
         )}
+
+        {/* CANCELAMENTOS */}
+        {view==="cancelamentos" && (()=>{
+          const perdidos = visitas.filter(v=>v.status==="perdido");
+          const total = visitas.length;
+
+          // Motivos de compra dos perdidos
+          const porMotivo = perdidos.reduce((acc,v)=>{
+            const m = v.motivoCompra||"Não informado";
+            acc[m]=(acc[m]||0)+1; return acc;
+          },{});
+
+          // Produtos dos perdidos
+          const porProduto = perdidos.reduce((acc,v)=>{
+            (v.produtos||"Não informado").split(",").forEach(p=>{
+              const pt=p.trim()||"Não informado";
+              acc[pt]=(acc[pt]||0)+1;
+            }); return acc;
+          },{});
+
+          // Urgência dos perdidos
+          const porUrgencia = perdidos.reduce((acc,v)=>{
+            const u=v.urgencia||"Não informado";
+            acc[u]=(acc[u]||0)+1; return acc;
+          },{});
+
+          // Valor médio perdido
+          const valorPerdido = perdidos.reduce((acc,v)=>acc+valorFinal(v),0);
+
+          const BarItem = ({label,count,total,color})=>(
+            <div style={{marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <span style={{fontSize:12,color:"#aaa"}}>{label}</span>
+                <span style={{fontSize:12,color,fontWeight:600}}>{count} ({Math.round(count/total*100)}%)</span>
+              </div>
+              <div style={{height:6,background:"#1a1a24",borderRadius:3}}>
+                <div style={{height:6,borderRadius:3,background:color,width:`${Math.round(count/total*100)}%`,transition:"width .5s"}}/>
+              </div>
+            </div>
+          );
+
+          return (
+            <div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>📊 Análise de Cancelamentos</div>
+              <div style={{fontSize:12,color:"#555",marginBottom:20}}>Entenda por que você está perdendo vendas</div>
+
+              {/* KPIs */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}} className="grid-4col">
+                <div className="sc">
+                  <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>Total Perdidos</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:28,color:"#ef4444"}}>{perdidos.length}</div>
+                </div>
+                <div className="sc">
+                  <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>Taxa de Perda</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:28,color:"#f97316"}}>{total>0?Math.round(perdidos.length/total*100):0}%</div>
+                </div>
+                <div className="sc">
+                  <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>Receita Perdida</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#ef4444"}}>{fmt(valorPerdido)}</div>
+                </div>
+              </div>
+
+              {perdidos.length===0 && <div className="card" style={{padding:36,textAlign:"center",color:"#444",fontSize:14}}>Nenhuma venda perdida! 🎉</div>}
+
+              {perdidos.length>0 && (
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}} className="grid-2col">
+                  <div className="card" style={{padding:18}}>
+                    <div style={{fontSize:11,color:"#ef4444",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>Por Motivo de Compra</div>
+                    {Object.entries(porMotivo).sort((a,b)=>b[1]-a[1]).map(([k,v])=>(
+                      <BarItem key={k} label={k} count={v} total={perdidos.length} color="#ef4444"/>
+                    ))}
+                  </div>
+                  <div className="card" style={{padding:18}}>
+                    <div style={{fontSize:11,color:"#f97316",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>Por Produto</div>
+                    {Object.entries(porProduto).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>(
+                      <BarItem key={k} label={k} count={v} total={perdidos.length} color="#f97316"/>
+                    ))}
+                  </div>
+                  <div className="card" style={{padding:18,gridColumn:"span 2"}} style={{padding:18}}>
+                    <div style={{fontSize:11,color:"#8b5cf6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>Por Urgência</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                      {Object.entries(porUrgencia).sort((a,b)=>b[1]-a[1]).map(([k,v])=>(
+                        <BarItem key={k} label={k} count={v} total={perdidos.length} color="#8b5cf6"/>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {perdidos.length>0 && (
+                <div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,marginBottom:10}}>❌ Vendas Perdidas</div>
+                  <div className="card">
+                    {perdidos.map(v=>(
+                      <div key={v.id} style={{padding:"12px 16px",borderBottom:"1px solid #1a1a24",cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div>
+                            <div style={{fontSize:14,fontWeight:600}}>{v.cliente}</div>
+                            <div style={{fontSize:11,color:"#555",marginTop:2}}>{v.dataVisita} · {v.produtos||"—"} · {v.motivoCompra||"—"}</div>
+                          </div>
+                          {v.valorOrcamento&&<div style={{fontSize:13,color:"#ef4444",fontWeight:600}}>-{fmt(valorFinal(v))}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* LISTA */}
         {view==="lista" && (
