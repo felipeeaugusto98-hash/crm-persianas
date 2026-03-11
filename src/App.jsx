@@ -232,6 +232,10 @@ export default function CRM() {
   const [simValor, setSimValor] = useState("");
   const [simDesc, setSimDesc] = useState(0);
   const [checklist, setChecklist] = useState({trena:false,amostras:false,tablet:false,cartao:false,contrato:false,caneta:false,uniforme:false});
+  const emptyTicket = {numero:"", dataAbertura:hoje, tipo:"", descricao:"", status:"aberto", quemAbriu:"Felipe", observacoes:""};
+  const [tickets, setTickets] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_tickets")||"[]"); } catch{return [];} });
+  const [formTicket, setFormTicket] = useState(null);
+  const saveTickets = (list) => { setTickets(list); localStorage.setItem("crm_tickets", JSON.stringify(list)); };
 
   useEffect(() => { carregar(); }, []);
 
@@ -541,6 +545,7 @@ export default function CRM() {
         <div className={`nav ${view==="simulador"?"on":""}`} onClick={()=>navTo("simulador")}>🧮 Simulador</div>
         <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>navTo("cancelamentos")}>📊 Cancelamentos</div>
         <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>navTo("ocorrencias")}>🔧 Ocorrências</div>
+        <div className={`nav ${view==="tickets"?"on":""}`} onClick={()=>navTo("tickets")}>🎫 Tickets</div>
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>navTo("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
@@ -568,6 +573,7 @@ export default function CRM() {
         <div className={`nav ${view==="simulador"?"on":""}`} onClick={()=>setView("simulador")}>🧮 Simulador</div>
         <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>setView("cancelamentos")}>📊 Cancelamentos</div>
         <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>setView("ocorrencias")}>🔧 Ocorrências</div>
+        <div className={`nav ${view==="tickets"?"on":""}`} onClick={()=>setView("tickets")}>🎫 Tickets</div>
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>setView("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
@@ -1251,6 +1257,146 @@ export default function CRM() {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* TICKETS */}
+        {view==="tickets" && (()=>{
+          const STATUS_TK = {
+            aberto:      {label:"🔴 Aberto",      color:"#ef4444", bg:"#ef444415"},
+            andamento:   {label:"🟡 Em andamento", color:"#f59e0b", bg:"#f59e0b15"},
+            aguardando:  {label:"🟣 Aguardando",   color:"#8b5cf6", bg:"#8b5cf615"},
+            resolvido:   {label:"✅ Resolvido",    color:"#10b981", bg:"#10b98115"},
+          };
+          const TIPOS = ["Instalação","Produto/Estoque","Sistema/Tecnologia","Pagamento/Financeiro","Relacionamento com cliente","Outro"];
+          const abertos = tickets.filter(t=>t.status==="aberto").length;
+          const andamento = tickets.filter(t=>t.status==="andamento").length;
+          const resolvidos = tickets.filter(t=>t.status==="resolvido").length;
+
+          const salvarTicket = () => {
+            if (!formTicket.descricao||!formTicket.tipo) return;
+            let lista;
+            if (formTicket._editIdx !== undefined) {
+              lista = tickets.map((t,i)=>i===formTicket._editIdx?{...formTicket}:t);
+            } else {
+              const num = `TK-${String(tickets.length+1).padStart(4,"0")}`;
+              lista = [{...formTicket, numero:num}, ...tickets];
+            }
+            saveTickets(lista);
+            setFormTicket(null);
+          };
+
+          return (
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+                <div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22}}>🎫 Tickets</div>
+                  <div style={{fontSize:12,color:"#555",marginTop:2}}>{tickets.length} ticket{tickets.length!==1?"s":""} registrado{tickets.length!==1?"s":""}</div>
+                </div>
+                <button className="btn bp" onClick={()=>setFormTicket({...emptyTicket})}>+ Novo Ticket</button>
+              </div>
+
+              {/* KPIs */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}} className="grid-4col">
+                {[
+                  {l:"Abertos",    v:abertos,    c:"#ef4444"},
+                  {l:"Em andamento",v:andamento,  c:"#f59e0b"},
+                  {l:"Resolvidos", v:resolvidos,  c:"#10b981"},
+                  {l:"Total",      v:tickets.length, c:"#c9a84c"},
+                ].map((k,i)=>(
+                  <div key={i} className="sc" style={{textAlign:"center"}}>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:28,color:k.c}}>{k.v}</div>
+                    <div style={{fontSize:10,color:"#555",marginTop:4,textTransform:"uppercase",letterSpacing:"1px"}}>{k.l}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Formulário novo/editar */}
+              {formTicket && (
+                <div className="card" style={{padding:20,marginBottom:20,border:"1px solid #c9a84c40"}}>
+                  <div style={{fontSize:13,color:"#c9a84c",fontWeight:700,marginBottom:16}}>
+                    {formTicket._editIdx!==undefined?"✏️ Editar Ticket":"🆕 Novo Ticket"}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Tipo do Problema *</label>
+                      <select className="inp" value={formTicket.tipo} onChange={e=>setFormTicket({...formTicket,tipo:e.target.value})}>
+                        <option value="">Selecione...</option>
+                        {TIPOS.map(t=><option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Status</label>
+                      <select className="inp" value={formTicket.status} onChange={e=>setFormTicket({...formTicket,status:e.target.value})}>
+                        {Object.entries(STATUS_TK).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Data de Abertura</label>
+                      <input className="inp" value={formTicket.dataAbertura} onChange={e=>setFormTicket({...formTicket,dataAbertura:e.target.value})}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Quem Abriu</label>
+                      <input className="inp" value={formTicket.quemAbriu} onChange={e=>setFormTicket({...formTicket,quemAbriu:e.target.value})}/>
+                    </div>
+                  </div>
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Descrição do Problema *</label>
+                    <textarea className="inp" rows={3} style={{resize:"vertical"}} placeholder="Descreva o problema com detalhes..." value={formTicket.descricao} onChange={e=>setFormTicket({...formTicket,descricao:e.target.value})}/>
+                  </div>
+                  <div style={{marginBottom:16}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Observações / Atualizações</label>
+                    <textarea className="inp" rows={2} style={{resize:"vertical"}} placeholder="Atualizações, respostas recebidas..." value={formTicket.observacoes} onChange={e=>setFormTicket({...formTicket,observacoes:e.target.value})}/>
+                  </div>
+                  <div style={{display:"flex",gap:10}}>
+                    <button className="btn bp" onClick={salvarTicket}>💾 Salvar</button>
+                    <button className="btn bg" style={{color:"#777",borderColor:"#333"}} onClick={()=>setFormTicket(null)}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Lista de tickets */}
+              <div className="card">
+                {tickets.length===0 && (
+                  <div style={{padding:40,textAlign:"center",color:"#444",fontSize:13}}>
+                    <div style={{fontSize:32,marginBottom:8}}>🎫</div>
+                    Nenhum ticket registrado ainda
+                  </div>
+                )}
+                {tickets.map((t,i)=>{
+                  const st = STATUS_TK[t.status]||STATUS_TK.aberto;
+                  return (
+                    <div key={i} style={{padding:"16px",borderBottom:"1px solid #1a1a24"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+                        <div style={{flex:1}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+                            <span style={{fontFamily:"Georgia,serif",fontSize:13,color:"#c9a84c",fontWeight:700}}>{t.numero}</span>
+                            <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:st.bg,color:st.color,fontWeight:600}}>{st.label}</span>
+                            <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:"#1e1e28",color:"#aaa"}}>{t.tipo}</span>
+                          </div>
+                          <div style={{fontSize:13,color:"#e8e4dc",marginBottom:4}}>{t.descricao}</div>
+                          {t.observacoes && <div style={{fontSize:11,color:"#777",fontStyle:"italic",marginTop:4}}>💬 {t.observacoes}</div>}
+                          <div style={{fontSize:10,color:"#444",marginTop:6}}>📅 {t.dataAbertura} · 👤 {t.quemAbriu}</div>
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                          <button className="sb" style={{fontSize:11}} onClick={()=>setFormTicket({...t,_editIdx:i})}>✏️ Editar</button>
+                          {t.status!=="resolvido" && (
+                            <button className="sb" style={{fontSize:11,color:"#10b981",borderColor:"#10b98140"}} onClick={()=>{
+                              const lista = tickets.map((tk,idx)=>idx===i?{...tk,status:"resolvido"}:tk);
+                              saveTickets(lista);
+                            }}>✅ Resolver</button>
+                          )}
+                          <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={()=>{
+                            if(!window.confirm("Excluir este ticket?")) return;
+                            saveTickets(tickets.filter((_,idx)=>idx!==i));
+                          }}>🗑️ Excluir</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
