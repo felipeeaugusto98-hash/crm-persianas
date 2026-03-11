@@ -695,7 +695,7 @@ export default function CRM() {
         {view==="comissao" && (
           <div>
             <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>💰 Minha Comissão</div>
-            <div style={{fontSize:12,color:"#555",marginBottom:24}}>Cálculo automático baseado nas vendas de {hoje.slice(3)}}</div>
+            <div style={{fontSize:12,color:"#555",marginBottom:24}}>Cálculo automático baseado nas vendas de {hoje.slice(3)}</div>
 
             {/* Card principal */}
             <div style={{background:"linear-gradient(135deg,#1a1a10,#12120a)",border:"1px solid #c9a84c40",borderRadius:16,padding:28,marginBottom:20,position:"relative",overflow:"hidden"}}>
