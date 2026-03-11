@@ -2105,7 +2105,7 @@ export default function CRM() {
                 <div style={{fontFamily:"Georgia,serif",fontSize:20}}>{selectedCliente.nome}</div>
                 <div style={{fontSize:11,color:"#555"}}>{selectedCliente.telefone}</div>
               </div>
-              <button className="btn bg" onClick={()=>{setFormCliente({...selectedCliente});setView("novo-cliente")}}>✎ Editar</button>
+              <button className="btn bg" onClick={()=>{setFormCliente({...selectedCliente, dataNascimento: selectedCliente.data_nascimento||""});setView("novo-cliente")}}>✎ Editar</button>
               <button className="btn bd" onClick={()=>excluirCliente(selectedCliente.id)}>✕</button>
             </div>
             <div className="card" style={{padding:20,marginBottom:14}}>
@@ -2115,6 +2115,8 @@ export default function CRM() {
                   {label:"Telefone",value:selectedCliente.telefone,color:"#c9a84c"},
                   {label:"E-mail",value:selectedCliente.email},
                   {label:"Origem",value:selectedCliente.origem,color:"#8b5cf6"},
+                  {label:"CPF",value:selectedCliente.cpf},
+                  {label:"🎂 Data de Nascimento",value:selectedCliente.data_nascimento},
                   {label:"Endereço",value:selectedCliente.endereco},
                   {label:"Bairro",value:selectedCliente.bairro},
                   {label:"Cidade",value:selectedCliente.cidade},
