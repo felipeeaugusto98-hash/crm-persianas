@@ -1774,7 +1774,11 @@ export default function CRM() {
                     </div>
                     <div>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Data de Envio</label>
-                      <input className="inp" placeholder="DD/MM/AAAA" value={formPedido.dataEnvio} onChange={e=>setFormPedido({...formPedido,dataEnvio:e.target.value})}/>
+                      <input className="inp" placeholder="DD/MM/AAAA" value={formPedido.dataEnvio} onChange={e=>{
+                        const novaData = e.target.value;
+                        const novoPrazo = calcPrazo(novaData, formPedido.produtos);
+                        setFormPedido({...formPedido, dataEnvio:novaData, previsaoEntrega:novoPrazo||formPedido.previsaoEntrega});
+                      }}/>
                     </div>
                     <div>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Status</label>
@@ -1784,7 +1788,11 @@ export default function CRM() {
                     </div>
                     <div style={{gridColumn:"span 2"}}>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Produtos</label>
-                      <input className="inp" placeholder="Ex: Rolo Motorizado, Cortina..." value={formPedido.produtos} onChange={e=>setFormPedido({...formPedido,produtos:e.target.value})}/>
+                      <input className="inp" placeholder="Ex: Rolo Motorizado, Cortina..." value={formPedido.produtos} onChange={e=>{
+                        const novoProd = e.target.value;
+                        const novoPrazo = calcPrazo(formPedido.dataEnvio, novoProd);
+                        setFormPedido({...formPedido, produtos:novoProd, previsaoEntrega:novoPrazo||formPedido.previsaoEntrega});
+                      }}/>
                       {formPedido.dataEnvio && (
                         <div style={{fontSize:11,color:"#c9a84c",marginTop:6}}>
                           📅 Prazo automático: <strong>{calcPrazo(formPedido.dataEnvio, formPedido.produtos)||"—"}</strong>
@@ -2144,7 +2152,8 @@ export default function CRM() {
                       <div style={{fontSize:13,color:"#e8e4dc",fontWeight:600}}>{prazo}</div>
                       <div style={{fontSize:11,color:"#777",marginTop:2}}>{temCortina?"25 dias úteis — Cortina":"20 dias úteis — Persiana"}</div>
                       <button className="btn bp" style={{width:"100%",marginTop:10,fontSize:12,padding:"8px"}} onClick={()=>{
-                        setFormPedido({...emptyPedido, cliente:selected.cliente, produtos:selected.produtos||"", dataEnvio:hoje, previsaoEntrega:prazo});
+                        const prazoAuto = calcPrazo(hoje, selected.produtos||"");
+                        setFormPedido({...emptyPedido, cliente:selected.cliente, produtos:selected.produtos||"", dataEnvio:hoje, previsaoEntrega:prazoAuto||""});
                         setView("fabrica");
                       }}>🏭 Criar Pedido na Fábrica</button>
                     </div>
