@@ -205,7 +205,111 @@ function MedidorMeta({ receita }) {
   );
 }
 
+const auth = {
+  async login(email, senha) {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: senha })
+    });
+    return await res.json();
+  },
+  async logout(token) {
+    await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+    });
+  },
+  async getUser(token) {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+    });
+    return await res.json();
+  }
+};
+
 export default function CRM() {
+  const [sessao, setSessao] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_sessao")||"null"); } catch{return null;} });
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginSenha, setLoginSenha] = useState("");
+  const [loginErro, setLoginErro] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const fazerLogin = async () => {
+    if(!loginEmail||!loginSenha) return;
+    setLoginLoading(true); setLoginErro("");
+    const data = await auth.login(loginEmail, loginSenha);
+    if(data.access_token) {
+      const s = {token: data.access_token, email: data.user?.email, nome: data.user?.user_metadata?.nome||data.user?.email};
+      setSessao(s);
+      localStorage.setItem("crm_sessao", JSON.stringify(s));
+    } else {
+      setLoginErro("E-mail ou senha incorretos.");
+    }
+    setLoginLoading(false);
+  };
+
+  const fazerLogout = async () => {
+    if(sessao?.token) await auth.logout(sessao.token);
+    setSessao(null);
+    localStorage.removeItem("crm_sessao");
+  };
+
+  // Tela de login
+  if(!sessao) return (
+    <div style={{minHeight:"100vh",background:"#0d0d1a",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{width:"100%",maxWidth:400}}>
+        {/* Logo */}
+        <div style={{textAlign:"center",marginBottom:40}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:32,color:"#c9a84c",fontWeight:700,letterSpacing:2}}>Persianas</div>
+          <div style={{fontSize:11,color:"#444",letterSpacing:"4px",textTransform:"uppercase",marginTop:4}}>CRM · Sistema de Gestão</div>
+        </div>
+
+        {/* Card login */}
+        <div style={{background:"#13131f",border:"1px solid #1e1e28",borderRadius:16,padding:32}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#e8e4dc",marginBottom:6}}>Bem-vindo de volta</div>
+          <div style={{fontSize:12,color:"#555",marginBottom:28}}>Entre com suas credenciais para acessar</div>
+
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:11,color:"#777",display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:"1px"}}>E-mail</label>
+            <input
+              style={{width:"100%",padding:"12px 14px",background:"#0d0d1a",border:"1px solid #2a2a3a",borderRadius:8,color:"#e8e4dc",fontSize:14,outline:"none",boxSizing:"border-box"}}
+              type="email" placeholder="seu@email.com" value={loginEmail}
+              onChange={e=>setLoginEmail(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&fazerLogin()}
+            />
+          </div>
+
+          <div style={{marginBottom:24}}>
+            <label style={{fontSize:11,color:"#777",display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:"1px"}}>Senha</label>
+            <input
+              style={{width:"100%",padding:"12px 14px",background:"#0d0d1a",border:"1px solid #2a2a3a",borderRadius:8,color:"#e8e4dc",fontSize:14,outline:"none",boxSizing:"border-box"}}
+              type="password" placeholder="••••••••" value={loginSenha}
+              onChange={e=>setLoginSenha(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&fazerLogin()}
+            />
+          </div>
+
+          {loginErro && (
+            <div style={{padding:"10px 14px",background:"#ef444415",border:"1px solid #ef444430",borderRadius:8,color:"#ef4444",fontSize:13,marginBottom:16}}>
+              ⚠️ {loginErro}
+            </div>
+          )}
+
+          <button
+            onClick={fazerLogin} disabled={loginLoading||!loginEmail||!loginSenha}
+            style={{width:"100%",padding:"13px",background:loginLoading||!loginEmail||!loginSenha?"#2a2a3a":"#c9a84c",color:loginLoading||!loginEmail||!loginSenha?"#555":"#0d0d1a",border:"none",borderRadius:8,fontSize:15,fontWeight:700,cursor:loginLoading?"wait":"pointer",transition:"all .2s",fontFamily:"Georgia,serif"}}
+          >
+            {loginLoading ? "Entrando..." : "Entrar →"}
+          </button>
+        </div>
+
+        <div style={{textAlign:"center",marginTop:20,fontSize:11,color:"#333"}}>
+          Persianas em Casa · Sistema interno
+        </div>
+      </div>
+    </div>
+  );
   const [visitas, setVisitas] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -591,6 +695,10 @@ export default function CRM() {
           <div style={{fontFamily:"Georgia,serif",fontSize:16,color:"#10b981",marginTop:4}}>{fmt(stats.receita)}</div>
           <div style={{fontSize:10,color:"#444",marginTop:8}}>META</div>
           <div style={{fontFamily:"Georgia,serif",fontSize:14,color:"#c9a84c",marginTop:4}}>{fmt(META_MENSAL)}</div>
+          <div style={{marginTop:16,paddingTop:12,borderTop:"1px solid #1a1a24"}}>
+            <div style={{fontSize:10,color:"#444",marginBottom:6}}>👤 {sessao?.email}</div>
+            <button onClick={fazerLogout} style={{width:"100%",padding:"8px",background:"transparent",border:"1px solid #2a2a3a",borderRadius:6,color:"#555",fontSize:11,cursor:"pointer"}}>Sair →</button>
+          </div>
         </div>
       </div>
 
