@@ -257,23 +257,23 @@ export default function CRM() {
 
   // Tela de login
   if(!sessao) return (
-    <div style={{minHeight:"100vh",background:"#0d0d1a",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{width:"100%",maxWidth:400}}>
+    <div style={{minHeight:"100vh",width:"100vw",background:"#0d0d1a",display:"flex",alignItems:"center",justifyContent:"center",padding:20,boxSizing:"border-box"}}>
+      <div style={{width:"100%",maxWidth:420}}>
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:40}}>
-          <div style={{fontFamily:"Georgia,serif",fontSize:32,color:"#c9a84c",fontWeight:700,letterSpacing:2}}>Persianas</div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:36,color:"#c9a84c",fontWeight:700,letterSpacing:2}}>Persianas</div>
           <div style={{fontSize:11,color:"#444",letterSpacing:"4px",textTransform:"uppercase",marginTop:4}}>CRM · Sistema de Gestão</div>
         </div>
 
         {/* Card login */}
-        <div style={{background:"#13131f",border:"1px solid #1e1e28",borderRadius:16,padding:32}}>
-          <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#e8e4dc",marginBottom:6}}>Bem-vindo de volta</div>
+        <div style={{background:"#13131f",border:"1px solid #1e1e28",borderRadius:16,padding:32,boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"#e8e4dc",marginBottom:6}}>Bem-vindo de volta</div>
           <div style={{fontSize:12,color:"#555",marginBottom:28}}>Entre com suas credenciais para acessar</div>
 
           <div style={{marginBottom:16}}>
             <label style={{fontSize:11,color:"#777",display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:"1px"}}>E-mail</label>
             <input
-              style={{width:"100%",padding:"12px 14px",background:"#0d0d1a",border:"1px solid #2a2a3a",borderRadius:8,color:"#e8e4dc",fontSize:14,outline:"none",boxSizing:"border-box"}}
+              style={{width:"100%",padding:"12px 14px",background:"#0d0d1a",border:"1px solid #2a2a3a",borderRadius:8,color:"#e8e4dc",fontSize:14,outline:"none",boxSizing:"border-box",transition:"border .2s"}}
               type="email" placeholder="seu@email.com" value={loginEmail}
               onChange={e=>setLoginEmail(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&fazerLogin()}
@@ -283,7 +283,7 @@ export default function CRM() {
           <div style={{marginBottom:24}}>
             <label style={{fontSize:11,color:"#777",display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:"1px"}}>Senha</label>
             <input
-              style={{width:"100%",padding:"12px 14px",background:"#0d0d1a",border:"1px solid #2a2a3a",borderRadius:8,color:"#e8e4dc",fontSize:14,outline:"none",boxSizing:"border-box"}}
+              style={{width:"100%",padding:"12px 14px",background:"#0d0d1a",border:"1px solid #2a2a3a",borderRadius:8,color:"#e8e4dc",fontSize:14,outline:"none",boxSizing:"border-box",transition:"border .2s"}}
               type="password" placeholder="••••••••" value={loginSenha}
               onChange={e=>setLoginSenha(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&fazerLogin()}
@@ -298,13 +298,13 @@ export default function CRM() {
 
           <button
             onClick={fazerLogin} disabled={loginLoading||!loginEmail||!loginSenha}
-            style={{width:"100%",padding:"13px",background:loginLoading||!loginEmail||!loginSenha?"#2a2a3a":"#c9a84c",color:loginLoading||!loginEmail||!loginSenha?"#555":"#0d0d1a",border:"none",borderRadius:8,fontSize:15,fontWeight:700,cursor:loginLoading?"wait":"pointer",transition:"all .2s",fontFamily:"Georgia,serif"}}
+            style={{width:"100%",padding:"14px",background:loginLoading||!loginEmail||!loginSenha?"#2a2a3a":"#c9a84c",color:loginLoading||!loginEmail||!loginSenha?"#555":"#0d0d1a",border:"none",borderRadius:8,fontSize:16,fontWeight:700,cursor:loginLoading?"wait":"pointer",transition:"all .2s",fontFamily:"Georgia,serif",letterSpacing:1}}
           >
             {loginLoading ? "Entrando..." : "Entrar →"}
           </button>
         </div>
 
-        <div style={{textAlign:"center",marginTop:20,fontSize:11,color:"#333"}}>
+        <div style={{textAlign:"center",marginTop:24,fontSize:11,color:"#333"}}>
           Persianas em Casa · Sistema interno
         </div>
       </div>
