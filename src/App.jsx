@@ -3103,7 +3103,27 @@ export default function CRM() {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}} className="grid-2col">
               <div className="card" style={{padding:18}}>
                 <div style={{fontSize:10,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>📅 Dados da Visita</div>
-                {[{label:"Nome *",k:"cliente"},{label:"Telefone",k:"telefone"},{label:"E-mail",k:"email"},{label:"Data",k:"dataVisita",ph:"DD/MM/AAAA"},{label:"Horário",k:"horaVisita",ph:"HH:MM"},{label:"OP_ID",k:"opId"},{label:"Endereço",k:"endereco"}].map(f=>(
+                {/* Nome com verificação de duplicata */}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Nome *</label>
+                  <input className="inp" value={form.cliente} onChange={e=>setForm({...form,cliente:e.target.value})} style={{borderColor: !form.id && form.cliente && visitas.some(v=>v.id!==form.id && v.cliente?.toLowerCase().trim()===form.cliente.toLowerCase().trim()) ? "#ef4444" : undefined }}/>
+                  {!form.id && form.cliente && (()=>{
+                    const dup = visitas.find(v=>v.id!==form.id && v.cliente?.toLowerCase().trim()===form.cliente.toLowerCase().trim());
+                    if(!dup) return null;
+                    return (
+                      <div style={{marginTop:8,padding:"10px 14px",background:"#ef444415",border:"1px solid #ef444430",borderRadius:8}}>
+                        <div style={{fontSize:12,color:"#ef4444",fontWeight:600,marginBottom:4}}>⚠️ Cliente já cadastrado!</div>
+                        <div style={{fontSize:11,color:"#aaa"}}>
+                          "{dup.cliente}" já tem uma visita ({STATUS[dup.status]?.label}) em {dup.dataVisita||"—"}
+                        </div>
+                        <button className="sb" style={{fontSize:11,marginTop:8,color:"#3b82f6",borderColor:"#3b82f640"}} onClick={()=>{setSelected(dup);setView("detalhe")}}>
+                          📋 Ver visita existente
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+                {[{label:"Telefone",k:"telefone"},{label:"E-mail",k:"email"},{label:"Data",k:"dataVisita",ph:"DD/MM/AAAA"},{label:"Horário",k:"horaVisita",ph:"HH:MM"},{label:"OP_ID",k:"opId"},{label:"Endereço",k:"endereco"}].map(f=>(
                   <div key={f.k} style={{marginBottom:12}}>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
                     <input className="inp" placeholder={f.ph||""} value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
@@ -3169,7 +3189,7 @@ export default function CRM() {
               </div>
             </div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              <button className="btn bp" style={{padding:"12px 28px"}} onClick={salvar} disabled={saving}>{saving?"Salvando...":(form.id?"Salvar":"Cadastrar Visita")}</button>
+              <button className="btn bp" style={{padding:"12px 28px"}} onClick={salvar} disabled={saving || (!form.id && form.cliente && visitas.some(v=>v.id!==form.id && v.cliente?.toLowerCase().trim()===form.cliente.toLowerCase().trim()))}>{saving?"Salvando...":(form.id?"Salvar":"Cadastrar Visita")}</button>
               <button className="btn bg" onClick={()=>setView(form.id?"detalhe":"lista")}>← Voltar</button>
               <button className="btn bg" style={{color:"#f59e0b",borderColor:"#f59e0b40"}} onClick={()=>{if(window.confirm("Limpar todos os campos?"))setForm({...empty})}}>🗑️ Limpar</button>
             </div>
