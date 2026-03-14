@@ -651,6 +651,7 @@ export default function CRM() {
       if (formCliente.id) await dbClientes.update(formCliente.id, formCliente);
       else await dbClientes.insert(formCliente);
       const c = await dbClientes.get(); setClientes(c);
+      setFormCliente({...emptyCliente});
       setView("clientes");
       showToast("Cliente salvo com sucesso!");
     } catch(e) { console.error(e); showToast("Erro ao salvar cliente","erro"); }
@@ -676,7 +677,7 @@ export default function CRM() {
     try {
       if (form.id) await db.update(form.id,{...form,historico});
       else await db.insert({...form,historico,dataCriacao:hoje});
-      await carregar(); setView("lista");
+      await carregar(); setForm({...empty}); setView("lista");
       showToast("Visita salva com sucesso!");
     } catch(e) { console.error(e); showToast("Erro ao salvar visita","erro"); }
     setSaving(false);
@@ -873,7 +874,7 @@ export default function CRM() {
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>setView("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
-        <button className="btn bp" style={{width:"100%",padding:11}} onClick={()=>{setForm({...empty});setView("novo")}}>+ Nova Visita</button>
+        <button className="btn bp" style={{width:"100%",padding:11}} onClick={()=>{if(!form.cliente)setForm({...empty});setView("novo")}}>+ Nova Visita{form.cliente&&!form.id?" (rascunho)":""}</button>
         <div style={{marginTop:14,padding:"12px 8px",borderTop:"1px solid #1a1a24"}}>
           <div style={{fontSize:10,color:"#444"}}>RECEITA DO MÊS</div>
           <div style={{fontFamily:"Georgia,serif",fontSize:16,color:"#10b981",marginTop:4}}>{fmt(stats.receita)}</div>
@@ -2375,7 +2376,7 @@ export default function CRM() {
               </div>
               <div style={{display:"flex",gap:8}}>
                 <button className="btn bg hide-mobile" style={{color:"#818cf8",borderColor:"#6366f140"}} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉</button>
-                <button className="btn bp" onClick={()=>{setForm({...empty});setView("novo")}}>+ Nova</button>
+                <button className="btn bp" onClick={()=>{if(!form.cliente)setForm({...empty});setView("novo")}}>+ Nova{form.cliente&&!form.id?" (rascunho)":""}</button>
               </div>
             </div>
             <div style={{display:"flex",gap:8,marginBottom:14}}>
@@ -2795,7 +2796,7 @@ export default function CRM() {
                 <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:2}}>👥 Clientes</div>
                 <div style={{fontSize:12,color:"#555"}}>{clientesFiltrados.length} cadastrados</div>
               </div>
-              <button className="btn bp" onClick={()=>{setFormCliente({...emptyCliente});setView("novo-cliente")}}>+ Novo Cliente</button>
+              <button className="btn bp" onClick={()=>{if(!formCliente.nome)setFormCliente({...emptyCliente});setView("novo-cliente")}}>+ Novo Cliente{formCliente.nome&&!formCliente.id?" (rascunho)":""}</button>
             </div>
             <input className="inp" placeholder="Buscar por nome ou telefone..." value={searchCliente} onChange={e=>setSearchCliente(e.target.value)} style={{marginBottom:14}}/>
             <div className="card">
@@ -2960,7 +2961,8 @@ export default function CRM() {
               </div>
               <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                 <button className="btn bp" style={{padding:"12px 28px"}} onClick={salvarCliente} disabled={!formCliente.nome||saving}>{saving?"Salvando...":(formCliente.id?"Salvar":"Cadastrar")}</button>
-                <button className="btn bg" onClick={()=>setView(formCliente.id?"detalhe-cliente":"clientes")}>Cancelar</button>
+                <button className="btn bg" onClick={()=>setView(formCliente.id?"detalhe-cliente":"clientes")}>← Voltar</button>
+                <button className="btn bg" style={{color:"#f59e0b",borderColor:"#f59e0b40"}} onClick={()=>{if(window.confirm("Limpar todos os campos?"))setFormCliente({...emptyCliente})}}>🗑️ Limpar</button>
               </div>
             </div>
           </div>
@@ -3043,7 +3045,8 @@ export default function CRM() {
             </div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
               <button className="btn bp" style={{padding:"12px 28px"}} onClick={salvar} disabled={saving}>{saving?"Salvando...":(form.id?"Salvar":"Cadastrar Visita")}</button>
-              <button className="btn bg" onClick={()=>setView(form.id?"detalhe":"lista")}>Cancelar</button>
+              <button className="btn bg" onClick={()=>setView(form.id?"detalhe":"lista")}>← Voltar</button>
+              <button className="btn bg" style={{color:"#f59e0b",borderColor:"#f59e0b40"}} onClick={()=>{if(window.confirm("Limpar todos os campos?"))setForm({...empty})}}>🗑️ Limpar</button>
             </div>
           </div>
         )}
