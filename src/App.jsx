@@ -204,6 +204,9 @@ const STATUS = {
 
 const empty = { cliente:"", telefone:"", endereco:"", email:"", dataVisita:"", horaVisita:"", opId:"", ambiente:"", motivoCompra:"", urgencia:"", produtos:"", medidas:"", observacoes:"", valorOrcamento:"", desconto:"", dataInstalacao:"", linkOrcamento:"", status:"agendado", historico:[], dataCriacao: new Date().toLocaleDateString("pt-BR") };
 const fmt = (v) => Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+// Conversores de data: DD/MM/AAAA <-> YYYY-MM-DD
+const brToIso = (br) => { if(!br) return ""; const p=br.split("/"); return p.length===3?`${p[2]}-${p[1]}-${p[0]}`:""; };
+const isoToBr = (iso) => { if(!iso) return ""; const p=iso.split("-"); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:""; };
 const valorFinal = (d) => { const v=Number(d.valorOrcamento||0); return v-(v*Number(d.desconto||0))/100; };
 
 function extrairEmail(texto) {
@@ -731,6 +734,8 @@ export default function CRM() {
         .bd{background:transparent;color:#ef4444;padding:9px 16px;border:1px solid #ef444440}.bd:hover{background:#ef444415}
         .inp{background:#15151f;border:1px solid #2a2a38;border-radius:8px;color:#e8e4dc;padding:11px 14px;font-family:'Segoe UI',sans-serif;font-size:14px;width:100%;outline:none;transition:border .2s}
         .inp:focus{border-color:#c9a84c}.inp::placeholder{color:#444}
+        input[type="date"].inp,input[type="time"].inp{color-scheme:dark}
+        input[type="date"].inp::-webkit-calendar-picker-indicator,input[type="time"].inp::-webkit-calendar-picker-indicator{filter:invert(0.7);cursor:pointer}
         textarea.inp{min-height:100px;resize:vertical} select.inp{cursor:pointer}
         .card{background:#12121a;border:1px solid #22222e;border-radius:12px}
         .sc{background:#12121a;border:1px solid #22222e;border-radius:12px;padding:16px;position:relative;overflow:hidden}
@@ -1509,7 +1514,7 @@ export default function CRM() {
                     </div>
                     <div>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Previsão de Resolução</label>
-                      <input className="inp" placeholder="DD/MM/AAAA" value={formOcorrencia.previsao} onChange={e=>setFormOcorrencia({...formOcorrencia,previsao:e.target.value})}/>
+                      <input className="inp" type="date" value={brToIso(formOcorrencia.previsao)} onChange={e=>setFormOcorrencia({...formOcorrencia,previsao:isoToBr(e.target.value)})}/>
                     </div>
                     <div>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Data de Abertura</label>
@@ -2077,8 +2082,8 @@ export default function CRM() {
                     </div>
                     <div>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Data de Envio</label>
-                      <input className="inp" placeholder="DD/MM/AAAA" value={formPedido.dataEnvio} onChange={e=>{
-                        const novaData = e.target.value;
+                      <input className="inp" type="date" value={brToIso(formPedido.dataEnvio)} onChange={e=>{
+                        const novaData = isoToBr(e.target.value);
                         const novoPrazo = calcPrazo(novaData, formPedido.produtos);
                         setFormPedido({...formPedido, dataEnvio:novaData, previsaoEntrega:novoPrazo||formPedido.previsaoEntrega});
                       }}/>
@@ -2105,11 +2110,11 @@ export default function CRM() {
                     </div>
                     <div>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Previsão de Entrega</label>
-                      <input className="inp" placeholder="DD/MM/AAAA (ou automático)" value={formPedido.previsaoEntrega} onChange={e=>setFormPedido({...formPedido,previsaoEntrega:e.target.value})}/>
+                      <input className="inp" type="date" value={brToIso(formPedido.previsaoEntrega)} onChange={e=>setFormPedido({...formPedido,previsaoEntrega:isoToBr(e.target.value)})}/>
                     </div>
                     <div>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Data Entrega Real</label>
-                      <input className="inp" placeholder="DD/MM/AAAA" value={formPedido.dataEntregaReal} onChange={e=>setFormPedido({...formPedido,dataEntregaReal:e.target.value})}/>
+                      <input className="inp" type="date" value={brToIso(formPedido.dataEntregaReal)} onChange={e=>setFormPedido({...formPedido,dataEntregaReal:isoToBr(e.target.value)})}/>
                     </div>
                     <div style={{gridColumn:"span 2"}}>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Observações</label>
@@ -2720,12 +2725,20 @@ export default function CRM() {
               <div className="card" style={{padding:18,borderColor:"#3b82f640"}}>
                 <div style={{fontSize:11,color:"#3b82f6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>✓ Revise os dados</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}} className="grid-2col">
-                  {[{label:"Nome *",k:"cliente"},{label:"Telefone",k:"telefone"},{label:"Data",k:"dataVisita",ph:"DD/MM/AAAA"},{label:"Horário",k:"horaVisita",ph:"HH:MM"}].map(f=>(
+                  {[{label:"Nome *",k:"cliente"},{label:"Telefone",k:"telefone"}].map(f=>(
                     <div key={f.k} style={{marginBottom:10}}>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
-                      <input className="inp" placeholder={f.ph||""} value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
+                      <input className="inp" value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
                     </div>
                   ))}
+                  <div style={{marginBottom:10}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Data</label>
+                    <input className="inp" type="date" value={brToIso(form.dataVisita)} onChange={e=>setForm({...form,dataVisita:isoToBr(e.target.value)})}/>
+                  </div>
+                  <div style={{marginBottom:10}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Horário</label>
+                    <input className="inp" type="time" value={form.horaVisita||""} onChange={e=>setForm({...form,horaVisita:e.target.value})}/>
+                  </div>
                   <div style={{marginBottom:10,gridColumn:"span 2"}}>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Endereço</label>
                     <input className="inp" value={form.endereco} onChange={e=>setForm({...form,endereco:e.target.value})}/>
@@ -3023,12 +3036,7 @@ export default function CRM() {
                 {/* Data de Nascimento */}
                 <div style={{marginBottom:12,gridColumn:"span 1"}}>
                   <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>🎂 Data de Nascimento</label>
-                  <input className="inp" placeholder="DD/MM/AAAA" value={formCliente.dataNascimento||""} onChange={e=>{
-                    let v=e.target.value.replace(/\D/g,"");
-                    if(v.length>8) v=v.slice(0,8);
-                    v=v.replace(/(\d{2})(\d)/,"$1/$2").replace(/(\d{2})(\d)/,"$1/$2");
-                    setFormCliente({...formCliente,dataNascimento:v});
-                  }}/>
+                  <input className="inp" type="date" value={brToIso(formCliente.dataNascimento||"")} onChange={e=>setFormCliente({...formCliente,dataNascimento:isoToBr(e.target.value)})}/>
                 </div>
 
                 {/* CEP com busca automática */}
@@ -3123,10 +3131,24 @@ export default function CRM() {
                     );
                   })()}
                 </div>
-                {[{label:"Telefone",k:"telefone"},{label:"E-mail",k:"email"},{label:"Data",k:"dataVisita",ph:"DD/MM/AAAA"},{label:"Horário",k:"horaVisita",ph:"HH:MM"},{label:"OP_ID",k:"opId"},{label:"Endereço",k:"endereco"}].map(f=>(
+                {[{label:"Telefone",k:"telefone"},{label:"E-mail",k:"email"}].map(f=>(
                   <div key={f.k} style={{marginBottom:12}}>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
-                    <input className="inp" placeholder={f.ph||""} value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
+                    <input className="inp" value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
+                  </div>
+                ))}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Data</label>
+                  <input className="inp" type="date" value={brToIso(form.dataVisita)} onChange={e=>setForm({...form,dataVisita:isoToBr(e.target.value)})}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Horário</label>
+                  <input className="inp" type="time" value={form.horaVisita||""} onChange={e=>setForm({...form,horaVisita:e.target.value})}/>
+                </div>
+                {[{label:"OP_ID",k:"opId"},{label:"Endereço",k:"endereco"}].map(f=>(
+                  <div key={f.k} style={{marginBottom:12}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>{f.label}</label>
+                    <input className="inp" value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})}/>
                   </div>
                 ))}
               </div>
@@ -3177,7 +3199,7 @@ export default function CRM() {
                   </div>}
                   <div style={{marginBottom:12}}>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Data de Instalação</label>
-                    <input className="inp" placeholder="DD/MM/AAAA" value={form.dataInstalacao} onChange={e=>setForm({...form,dataInstalacao:e.target.value})}/>
+                    <input className="inp" type="date" value={brToIso(form.dataInstalacao)} onChange={e=>setForm({...form,dataInstalacao:isoToBr(e.target.value)})}/>
                   </div>
                   <div>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Status</label>
