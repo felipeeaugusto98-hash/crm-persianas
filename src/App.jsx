@@ -3229,10 +3229,23 @@ export default function CRM() {
                   <div style={{marginBottom:12}}>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Data de Instalação</label>
                     <input className="inp" type="date" value={brToIso(form.dataInstalacao)} onChange={e=>setForm({...form,dataInstalacao:isoToBr(e.target.value)})}/>
+                    {form.status==="fechado" && form.dataInstalacao && (
+                      <div style={{fontSize:11,color:"#8b5cf6",marginTop:4}}>
+                        📅 {(form.produtos||"").toLowerCase().includes("cortina")?"25 dias úteis (cortina)":"20 dias úteis (persiana)"} a partir de hoje
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Status</label>
-                    <select className="inp" value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>
+                    <select className="inp" value={form.status} onChange={e=>{
+                      const novoStatus = e.target.value;
+                      const updates = {status: novoStatus};
+                      if(novoStatus==="fechado" && !form.dataInstalacao){
+                        const prazo = calcPrazo(new Date().toLocaleDateString("pt-BR"), form.produtos);
+                        if(prazo) updates.dataInstalacao = prazo;
+                      }
+                      setForm({...form,...updates});
+                    }}>
                       {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
                     </select>
                   </div>
