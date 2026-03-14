@@ -205,7 +205,111 @@ function MedidorMeta({ receita }) {
   );
 }
 
+const auth = {
+  async login(email, senha) {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: senha })
+    });
+    return await res.json();
+  },
+  async logout(token) {
+    await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+    });
+  },
+  async getUser(token) {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+    });
+    return await res.json();
+  }
+};
+
 export default function CRM() {
+  const [sessao, setSessao] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_sessao")||"null"); } catch{return null;} });
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginSenha, setLoginSenha] = useState("");
+  const [loginErro, setLoginErro] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const fazerLogin = async () => {
+    if(!loginEmail||!loginSenha) return;
+    setLoginLoading(true); setLoginErro("");
+    const data = await auth.login(loginEmail, loginSenha);
+    if(data.access_token) {
+      const s = {token: data.access_token, email: data.user?.email, nome: data.user?.user_metadata?.nome||data.user?.email};
+      localStorage.setItem("crm_sessao", JSON.stringify(s));
+      window.location.reload();
+    } else {
+      setLoginErro("E-mail ou senha incorretos.");
+    }
+    setLoginLoading(false);
+  };
+
+  const fazerLogout = async () => {
+    if(sessao?.token) await auth.logout(sessao.token);
+    setSessao(null);
+    localStorage.removeItem("crm_sessao");
+  };
+
+  // Tela de login
+  if(!sessao) return (
+    <div style={{minHeight:"100vh",width:"100vw",background:"#0d0d1a",display:"flex",alignItems:"center",justifyContent:"center",padding:20,boxSizing:"border-box"}}>
+      <div style={{width:"100%",maxWidth:420}}>
+        {/* Logo */}
+        <div style={{textAlign:"center",marginBottom:40}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:36,color:"#c9a84c",fontWeight:700,letterSpacing:2}}>Persianas</div>
+          <div style={{fontSize:11,color:"#444",letterSpacing:"4px",textTransform:"uppercase",marginTop:4}}>CRM · Sistema de Gestão</div>
+        </div>
+
+        {/* Card login */}
+        <div style={{background:"#13131f",border:"1px solid #1e1e28",borderRadius:16,padding:32,boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"#e8e4dc",marginBottom:6}}>Bem-vindo de volta</div>
+          <div style={{fontSize:12,color:"#555",marginBottom:28}}>Entre com suas credenciais para acessar</div>
+
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:11,color:"#777",display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:"1px"}}>E-mail</label>
+            <input
+              style={{width:"100%",padding:"12px 14px",background:"#0d0d1a",border:"1px solid #2a2a3a",borderRadius:8,color:"#e8e4dc",fontSize:14,outline:"none",boxSizing:"border-box",transition:"border .2s"}}
+              type="email" placeholder="seu@email.com" value={loginEmail}
+              onChange={e=>setLoginEmail(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&fazerLogin()}
+            />
+          </div>
+
+          <div style={{marginBottom:24}}>
+            <label style={{fontSize:11,color:"#777",display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:"1px"}}>Senha</label>
+            <input
+              style={{width:"100%",padding:"12px 14px",background:"#0d0d1a",border:"1px solid #2a2a3a",borderRadius:8,color:"#e8e4dc",fontSize:14,outline:"none",boxSizing:"border-box",transition:"border .2s"}}
+              type="password" placeholder="••••••••" value={loginSenha}
+              onChange={e=>setLoginSenha(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&fazerLogin()}
+            />
+          </div>
+
+          {loginErro && (
+            <div style={{padding:"10px 14px",background:"#ef444415",border:"1px solid #ef444430",borderRadius:8,color:"#ef4444",fontSize:13,marginBottom:16}}>
+              ⚠️ {loginErro}
+            </div>
+          )}
+
+          <button
+            onClick={fazerLogin} disabled={loginLoading||!loginEmail||!loginSenha}
+            style={{width:"100%",padding:"14px",background:loginLoading||!loginEmail||!loginSenha?"#2a2a3a":"#c9a84c",color:loginLoading||!loginEmail||!loginSenha?"#555":"#0d0d1a",border:"none",borderRadius:8,fontSize:16,fontWeight:700,cursor:loginLoading?"wait":"pointer",transition:"all .2s",fontFamily:"Georgia,serif",letterSpacing:1}}
+          >
+            {loginLoading ? "Entrando..." : "Entrar →"}
+          </button>
+        </div>
+
+        <div style={{textAlign:"center",marginTop:24,fontSize:11,color:"#333"}}>
+          Persianas em Casa · Sistema interno
+        </div>
+      </div>
+    </div>
+  );
   const [visitas, setVisitas] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -242,6 +346,34 @@ export default function CRM() {
   const [formNota, setFormNota] = useState(null);
   const [filtroNota, setFiltroNota] = useState("Todas");
   const saveNotas = (list) => { setNotas(list); localStorage.setItem("crm_notas", JSON.stringify(list)); };
+
+  const STATUS_FABRICA = {
+    aguardando:  {label:"⏳ Aguardando envio",  color:"#777",    bg:"#77777715"},
+    enviado:     {label:"📦 Enviado p/ fábrica", color:"#3b82f6", bg:"#3b82f615"},
+    producao:    {label:"⚙️ Em produção",        color:"#f59e0b", bg:"#f59e0b15"},
+    pronto:      {label:"✅ Pronto p/ entrega",  color:"#10b981", bg:"#10b98115"},
+    entregue:    {label:"🚚 Entregue",           color:"#8b5cf6", bg:"#8b5cf615"},
+    instalado:   {label:"🏠 Instalado",          color:"#c9a84c", bg:"#c9a84c15"},
+  };
+  const emptyPedido = {numeroPedido:"", dataEnvio:hoje, produtos:"", statusFabrica:"aguardando", previsaoEntrega:"", dataEntregaReal:"", observacoes:"", cliente:"", visita_id:""};
+  const [pedidosFabrica, setPedidosFabrica] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_pedidos_fabrica")||"[]"); } catch{return [];} });
+  const [formPedido, setFormPedido] = useState(null);
+  const savePedidos = (list) => { setPedidosFabrica(list); localStorage.setItem("crm_pedidos_fabrica", JSON.stringify(list)); };
+
+  const calcPrazo = (dataEnvio, produtos) => {
+    if(!dataEnvio) return null;
+    const [d,m,a] = dataEnvio.split("/");
+    if(!d||!m||!a) return null;
+    const base = new Date(`${a}-${m}-${d}`);
+    const temCortina = (produtos||"").toLowerCase().includes("cortina");
+    let diasUteis = temCortina ? 25 : 20;
+    let count = 0; let dt = new Date(base);
+    while(count < diasUteis) {
+      dt.setDate(dt.getDate()+1);
+      if(dt.getDay()!==0 && dt.getDay()!==6) count++;
+    }
+    return dt.toLocaleDateString("pt-BR");
+  };
 
   useEffect(() => { carregar(); }, []);
 
@@ -553,6 +685,7 @@ export default function CRM() {
         <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>navTo("ocorrencias")}>🔧 Ocorrências</div>
         <div className={`nav ${view==="tickets"?"on":""}`} onClick={()=>navTo("tickets")}>🎫 Tickets</div>
         <div className={`nav ${view==="notas"?"on":""}`} onClick={()=>navTo("notas")}>📝 Notas</div>
+        <div className={`nav ${view==="fabrica"?"on":""}`} onClick={()=>navTo("fabrica")}>🏭 Pedidos Fábrica</div>
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>navTo("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
@@ -582,6 +715,7 @@ export default function CRM() {
         <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>setView("ocorrencias")}>🔧 Ocorrências</div>
         <div className={`nav ${view==="tickets"?"on":""}`} onClick={()=>setView("tickets")}>🎫 Tickets</div>
         <div className={`nav ${view==="notas"?"on":""}`} onClick={()=>setView("notas")}>📝 Notas</div>
+        <div className={`nav ${view==="fabrica"?"on":""}`} onClick={()=>setView("fabrica")}>🏭 Pedidos Fábrica</div>
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>setView("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
@@ -591,6 +725,10 @@ export default function CRM() {
           <div style={{fontFamily:"Georgia,serif",fontSize:16,color:"#10b981",marginTop:4}}>{fmt(stats.receita)}</div>
           <div style={{fontSize:10,color:"#444",marginTop:8}}>META</div>
           <div style={{fontFamily:"Georgia,serif",fontSize:14,color:"#c9a84c",marginTop:4}}>{fmt(META_MENSAL)}</div>
+          <div style={{marginTop:16,paddingTop:12,borderTop:"1px solid #1a1a24"}}>
+            <div style={{fontSize:10,color:"#444",marginBottom:6}}>👤 {sessao?.email}</div>
+            <button onClick={fazerLogout} style={{width:"100%",padding:"8px",background:"transparent",border:"1px solid #2a2a3a",borderRadius:6,color:"#555",fontSize:11,cursor:"pointer"}}>Sair →</button>
+          </div>
         </div>
       </div>
 
@@ -1573,6 +1711,204 @@ export default function CRM() {
           );
         })()}
 
+        {/* PEDIDOS FÁBRICA */}
+        {view==="fabrica" && (()=>{
+          const emAndamento = pedidosFabrica.filter(p=>!["entregue","instalado"].includes(p.statusFabrica));
+          const concluidos = pedidosFabrica.filter(p=>["entregue","instalado"].includes(p.statusFabrica));
+          const atrasados = emAndamento.filter(p=>{
+            if(!p.previsaoEntrega) return false;
+            const [d,m,a] = p.previsaoEntrega.split("/");
+            return new Date(`${a}-${m}-${d}`) < new Date();
+          });
+
+          const salvarPedido = () => {
+            if(!formPedido.numeroPedido||!formPedido.cliente) return;
+            const prazo = calcPrazo(formPedido.dataEnvio, formPedido.produtos);
+            const pedido = {...formPedido, previsaoEntrega: formPedido.previsaoEntrega||prazo||""};
+            let lista;
+            if(formPedido._editIdx!==undefined) lista = pedidosFabrica.map((p,i)=>i===formPedido._editIdx?pedido:p);
+            else lista = [pedido, ...pedidosFabrica];
+            savePedidos(lista);
+            setFormPedido(null);
+          };
+
+          return (
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+                <div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22}}>🏭 Pedidos Fábrica</div>
+                  <div style={{fontSize:12,color:"#555",marginTop:2}}>{emAndamento.length} em andamento · {atrasados.length} atrasado{atrasados.length!==1?"s":""}</div>
+                </div>
+                <button className="btn bp" onClick={()=>setFormPedido({...emptyPedido})}>+ Novo Pedido</button>
+              </div>
+
+              {/* KPIs */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}} className="grid-4col">
+                {[
+                  {l:"Em andamento", v:emAndamento.length,      c:"#3b82f6"},
+                  {l:"Atrasados",    v:atrasados.length,        c:"#ef4444"},
+                  {l:"Prontos",      v:pedidosFabrica.filter(p=>p.statusFabrica==="pronto").length, c:"#10b981"},
+                  {l:"Concluídos",   v:concluidos.length,       c:"#c9a84c"},
+                ].map((k,i)=>(
+                  <div key={i} className="sc" style={{textAlign:"center"}}>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:28,color:k.c}}>{k.v}</div>
+                    <div style={{fontSize:10,color:"#555",marginTop:4,textTransform:"uppercase",letterSpacing:"1px"}}>{k.l}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Formulário */}
+              {formPedido && (
+                <div className="card" style={{padding:20,marginBottom:20,border:"1px solid #c9a84c40"}}>
+                  <div style={{fontSize:13,color:"#c9a84c",fontWeight:700,marginBottom:16}}>
+                    {formPedido._editIdx!==undefined?"✏️ Editar Pedido":"🆕 Novo Pedido"}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Nº do Pedido *</label>
+                      <input className="inp" placeholder="Ex: 000415" value={formPedido.numeroPedido} onChange={e=>setFormPedido({...formPedido,numeroPedido:e.target.value})}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Cliente *</label>
+                      <input className="inp" placeholder="Nome do cliente" value={formPedido.cliente} onChange={e=>setFormPedido({...formPedido,cliente:e.target.value})}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Data de Envio</label>
+                      <input className="inp" placeholder="DD/MM/AAAA" value={formPedido.dataEnvio} onChange={e=>{
+                        const novaData = e.target.value;
+                        const novoPrazo = calcPrazo(novaData, formPedido.produtos);
+                        setFormPedido({...formPedido, dataEnvio:novaData, previsaoEntrega:novoPrazo||formPedido.previsaoEntrega});
+                      }}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Status</label>
+                      <select className="inp" value={formPedido.statusFabrica} onChange={e=>setFormPedido({...formPedido,statusFabrica:e.target.value})}>
+                        {Object.entries(STATUS_FABRICA).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                      </select>
+                    </div>
+                    <div style={{gridColumn:"span 2"}}>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Produtos</label>
+                      <input className="inp" placeholder="Ex: Rolo Motorizado, Cortina..." value={formPedido.produtos} onChange={e=>{
+                        const novoProd = e.target.value;
+                        const novoPrazo = calcPrazo(formPedido.dataEnvio, novoProd);
+                        setFormPedido({...formPedido, produtos:novoProd, previsaoEntrega:novoPrazo||formPedido.previsaoEntrega});
+                      }}/>
+                      {formPedido.dataEnvio && (
+                        <div style={{fontSize:11,color:"#c9a84c",marginTop:6}}>
+                          📅 Prazo automático: <strong>{calcPrazo(formPedido.dataEnvio, formPedido.produtos)||"—"}</strong>
+                          {(formPedido.produtos||"").toLowerCase().includes("cortina") ? " (25 dias úteis — cortina)" : " (20 dias úteis — persiana)"}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Previsão de Entrega</label>
+                      <input className="inp" placeholder="DD/MM/AAAA (ou automático)" value={formPedido.previsaoEntrega} onChange={e=>setFormPedido({...formPedido,previsaoEntrega:e.target.value})}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Data Entrega Real</label>
+                      <input className="inp" placeholder="DD/MM/AAAA" value={formPedido.dataEntregaReal} onChange={e=>setFormPedido({...formPedido,dataEntregaReal:e.target.value})}/>
+                    </div>
+                    <div style={{gridColumn:"span 2"}}>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Observações</label>
+                      <textarea className="inp" rows={2} style={{resize:"vertical"}} placeholder="Atualizações, pendências..." value={formPedido.observacoes} onChange={e=>setFormPedido({...formPedido,observacoes:e.target.value})}/>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:10}}>
+                    <button className="btn bp" onClick={salvarPedido}>💾 Salvar</button>
+                    <button className="btn bg" style={{color:"#777",borderColor:"#333"}} onClick={()=>setFormPedido(null)}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Lista em andamento */}
+              {emAndamento.length>0 && (
+                <div style={{marginBottom:20}}>
+                  <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>Em Andamento</div>
+                  <div className="card">
+                    {emAndamento.map((p,i)=>{
+                      const st = STATUS_FABRICA[p.statusFabrica]||STATUS_FABRICA.aguardando;
+                      const idxReal = pedidosFabrica.indexOf(p);
+                      const atrasado = p.previsaoEntrega && (()=>{
+                        const [d,m,a]=p.previsaoEntrega.split("/");
+                        return new Date(`${a}-${m}-${d}`) < new Date();
+                      })();
+                      return (
+                        <div key={i} style={{padding:"14px 16px",borderBottom:"1px solid #1a1a24"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+                            <div style={{flex:1}}>
+                              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                                <span style={{fontFamily:"Georgia,serif",color:"#c9a84c",fontWeight:700}}>#{p.numeroPedido}</span>
+                                <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:st.bg,color:st.color,fontWeight:600}}>{st.label}</span>
+                                {atrasado && <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:"#ef444415",color:"#ef4444",fontWeight:600}}>⚠️ Atrasado</span>}
+                              </div>
+                              <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>{p.cliente}</div>
+                              <div style={{fontSize:12,color:"#777"}}>{p.produtos}</div>
+                              <div style={{display:"flex",gap:16,marginTop:6,flexWrap:"wrap"}}>
+                                <span style={{fontSize:11,color:"#555"}}>📦 Enviado: {p.dataEnvio}</span>
+                                <span style={{fontSize:11,color:atrasado?"#ef4444":"#c9a84c",fontWeight:atrasado?700:400}}>📅 Prazo: {p.previsaoEntrega||"—"}</span>
+                              </div>
+                              {p.observacoes && <div style={{fontSize:11,color:"#555",marginTop:4,fontStyle:"italic"}}>💬 {p.observacoes}</div>}
+                            </div>
+                            <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                              <button className="sb" style={{fontSize:11}} onClick={()=>setFormPedido({...p,_editIdx:idxReal})}>✏️ Editar</button>
+                              <select style={{padding:"5px 8px",background:"#1e1e28",border:"1px solid #2a2a3a",borderRadius:6,color:"#aaa",fontSize:11,cursor:"pointer"}}
+                                value={p.statusFabrica} onChange={e=>{
+                                  const lista = pedidosFabrica.map((pd,idx)=>idx===idxReal?{...pd,statusFabrica:e.target.value}:pd);
+                                  savePedidos(lista);
+                                }}>
+                                {Object.entries(STATUS_FABRICA).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Concluídos */}
+              {concluidos.length>0 && (
+                <div>
+                  <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>Concluídos ({concluidos.length})</div>
+                  <div className="card">
+                    {concluidos.map((p,i)=>{
+                      const st = STATUS_FABRICA[p.statusFabrica];
+                      const idxReal = pedidosFabrica.indexOf(p);
+                      return (
+                        <div key={i} style={{padding:"12px 16px",borderBottom:"1px solid #1a1a24",opacity:0.6}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                            <div>
+                              <span style={{fontFamily:"Georgia,serif",color:"#c9a84c",fontWeight:700,marginRight:10}}>#{p.numeroPedido}</span>
+                              <span style={{fontSize:13,color:"#aaa"}}>{p.cliente}</span>
+                              <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:st.bg,color:st.color,marginLeft:8}}>{st.label}</span>
+                            </div>
+                            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                              {p.dataEntregaReal && <span style={{fontSize:11,color:"#555"}}>Entregue: {p.dataEntregaReal}</span>}
+                              <button className="sb" style={{fontSize:11}} onClick={()=>setFormPedido({...p,_editIdx:idxReal})}>✏️</button>
+                              <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={()=>{
+                                if(!window.confirm("Excluir?")) return;
+                                savePedidos(pedidosFabrica.filter((_,idx)=>idx!==idxReal));
+                              }}>🗑️</button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {pedidosFabrica.length===0 && (
+                <div style={{padding:40,textAlign:"center",color:"#444",fontSize:13}}>
+                  <div style={{fontSize:36,marginBottom:8}}>🏭</div>
+                  Nenhum pedido registrado ainda
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* PAINEL GERENTE */}
         {view==="gerente" && (()=>{
           const fechados = visitas.filter(v=>v.status==="fechado");
@@ -1807,6 +2143,22 @@ export default function CRM() {
                 <Field label="Desconto" value={selected.desconto?`${selected.desconto}%`:null} color="#ef4444"/>
                 <Field label="Valor Final" value={selected.valorOrcamento?fmt(valorFinal(selected)):null} color="#10b981"/>
                 <Field label="Instalação" value={selected.dataInstalacao} color="#8b5cf6"/>
+                {selected.status==="fechado" && (()=>{
+                  const prazo = calcPrazo(selected.dataVisita, selected.produtos);
+                  const temCortina = (selected.produtos||"").toLowerCase().includes("cortina");
+                  return prazo ? (
+                    <div style={{marginTop:10,padding:"10px 12px",borderRadius:8,background:"#c9a84c10",border:"1px solid #c9a84c30"}}>
+                      <div style={{fontSize:10,color:"#c9a84c",marginBottom:4}}>🏭 PRAZO FÁBRICA</div>
+                      <div style={{fontSize:13,color:"#e8e4dc",fontWeight:600}}>{prazo}</div>
+                      <div style={{fontSize:11,color:"#777",marginTop:2}}>{temCortina?"25 dias úteis — Cortina":"20 dias úteis — Persiana"}</div>
+                      <button className="btn bp" style={{width:"100%",marginTop:10,fontSize:12,padding:"8px"}} onClick={()=>{
+                        const prazoAuto = calcPrazo(hoje, selected.produtos||"");
+                        setFormPedido({...emptyPedido, cliente:selected.cliente, produtos:selected.produtos||"", dataEnvio:hoje, previsaoEntrega:prazoAuto||""});
+                        setView("fabrica");
+                      }}>🏭 Criar Pedido na Fábrica</button>
+                    </div>
+                  ) : null;
+                })()}
                 {selected.status!=="orcamento_enviado" && selected.status!=="fechado" && (
                   <button className="btn bg" style={{width:"100%",marginTop:10,color:"#8b5cf6",borderColor:"#8b5cf640",fontSize:12}} onClick={async()=>{
                     const nota = `📋 Orçamento enviado ao cliente — ${new Date().toLocaleString("pt-BR")}`;
