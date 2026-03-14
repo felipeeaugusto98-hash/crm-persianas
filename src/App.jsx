@@ -241,8 +241,8 @@ export default function CRM() {
     const data = await auth.login(loginEmail, loginSenha);
     if(data.access_token) {
       const s = {token: data.access_token, email: data.user?.email, nome: data.user?.user_metadata?.nome||data.user?.email};
+      setSessao(s);
       localStorage.setItem("crm_sessao", JSON.stringify(s));
-      window.location.reload();
     } else {
       setLoginErro("E-mail ou senha incorretos.");
     }
