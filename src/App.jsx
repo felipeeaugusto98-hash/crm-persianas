@@ -166,13 +166,13 @@ const dbPedidos = {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica?order=created_at.desc`, {
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     });
-    return (await res.json()).map(p => ({...p, numeroPedido: p.numero_pedido, dataEnvio: p.data_envio, statusFabrica: p.status_fabrica, previsaoEntrega: p.previsao_entrega, dataEntregaReal: p.data_entrega_real}));
+    return (await res.json()).map(p => ({...p, numeroPedido: p.numero_pedido, dataEnvio: p.data_envio, statusFabrica: p.status_fabrica, previsaoEntrega: p.previsao_entrega, dataEntregaReal: p.data_entrega_real, valorPedido: p.valor_pedido}));
   },
   async insert(p) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ numero_pedido: p.numeroPedido, data_envio: p.dataEnvio, produtos: p.produtos, status_fabrica: p.statusFabrica, previsao_entrega: p.previsaoEntrega, data_entrega_real: p.dataEntregaReal, observacoes: p.observacoes, cliente: p.cliente, visita_id: p.visita_id })
+      body: JSON.stringify({ numero_pedido: p.numeroPedido, data_envio: p.dataEnvio, produtos: p.produtos, status_fabrica: p.statusFabrica, previsao_entrega: p.previsaoEntrega, data_entrega_real: p.dataEntregaReal, observacoes: p.observacoes, cliente: p.cliente, visita_id: p.visita_id, valor_pedido: p.valorPedido||0 })
     });
     return (await res.json())[0];
   },
@@ -180,7 +180,7 @@ const dbPedidos = {
     await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica?id=eq.${id}`, {
       method: "PATCH",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ numero_pedido: p.numeroPedido, data_envio: p.dataEnvio, produtos: p.produtos, status_fabrica: p.statusFabrica, previsao_entrega: p.previsaoEntrega, data_entrega_real: p.dataEntregaReal, observacoes: p.observacoes, cliente: p.cliente, visita_id: p.visita_id })
+      body: JSON.stringify({ numero_pedido: p.numeroPedido, data_envio: p.dataEnvio, produtos: p.produtos, status_fabrica: p.statusFabrica, previsao_entrega: p.previsaoEntrega, data_entrega_real: p.dataEntregaReal, observacoes: p.observacoes, cliente: p.cliente, visita_id: p.visita_id, valor_pedido: p.valorPedido||0 })
     });
   },
   async delete(id) {
@@ -400,7 +400,7 @@ export default function CRM() {
     entregue:    {label:"🚚 Entregue",           color:"#8b5cf6", bg:"#8b5cf615"},
     instalado:   {label:"🏠 Instalado",          color:"#c9a84c", bg:"#c9a84c15"},
   };
-  const emptyPedido = {numeroPedido:"", dataEnvio:hoje, produtos:"", statusFabrica:"aguardando", previsaoEntrega:"", dataEntregaReal:"", observacoes:"", cliente:"", visita_id:""};
+  const emptyPedido = {numeroPedido:"", dataEnvio:hoje, produtos:"", statusFabrica:"aguardando", previsaoEntrega:"", dataEntregaReal:"", observacoes:"", cliente:"", visita_id:"", valorPedido:""};
   const [pedidosFabrica, setPedidosFabrica] = useState([]);
   const [formPedido, setFormPedido] = useState(null);
   const recarregarPedidos = async () => { try { setPedidosFabrica(await dbPedidos.get()); } catch(e) { console.error(e); } };
@@ -838,6 +838,7 @@ export default function CRM() {
         <div className={`nav ${view==="tickets"?"on":""}`} onClick={()=>navTo("tickets")}>🎫 Tickets</div>
         <div className={`nav ${view==="notas"?"on":""}`} onClick={()=>navTo("notas")}>📝 Notas</div>
         <div className={`nav ${view==="fabrica"?"on":""}`} onClick={()=>navTo("fabrica")}>🏭 Pedidos Fábrica</div>
+        <div className={`nav ${view==="producao"?"on":""}`} onClick={()=>navTo("producao")}>💰 Produção</div>
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>navTo("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
@@ -868,6 +869,7 @@ export default function CRM() {
         <div className={`nav ${view==="tickets"?"on":""}`} onClick={()=>setView("tickets")}>🎫 Tickets</div>
         <div className={`nav ${view==="notas"?"on":""}`} onClick={()=>setView("notas")}>📝 Notas</div>
         <div className={`nav ${view==="fabrica"?"on":""}`} onClick={()=>setView("fabrica")}>🏭 Pedidos Fábrica</div>
+        <div className={`nav ${view==="producao"?"on":""}`} onClick={()=>setView("producao")}>💰 Produção</div>
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>setView("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div style={{flex:1}}/>
@@ -1987,6 +1989,10 @@ export default function CRM() {
                       <input className="inp" placeholder="Nome do cliente" value={formPedido.cliente} onChange={e=>setFormPedido({...formPedido,cliente:e.target.value})}/>
                     </div>
                     <div>
+                      <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Valor do Pedido (R$) *</label>
+                      <input className="inp" type="number" placeholder="0,00" value={formPedido.valorPedido} onChange={e=>setFormPedido({...formPedido,valorPedido:e.target.value})}/>
+                    </div>
+                    <div>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Data de Envio</label>
                       <input className="inp" placeholder="DD/MM/AAAA" value={formPedido.dataEnvio} onChange={e=>{
                         const novaData = e.target.value;
@@ -2057,6 +2063,7 @@ export default function CRM() {
                               </div>
                               <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>{p.cliente}</div>
                               <div style={{fontSize:12,color:"#777"}}>{p.produtos}</div>
+                              {Number(p.valorPedido)>0 && <div style={{fontSize:13,color:"#10b981",fontWeight:600,marginTop:2}}>{fmt(Number(p.valorPedido))}</div>}
                               <div style={{display:"flex",gap:16,marginTop:6,flexWrap:"wrap"}}>
                                 <span style={{fontSize:11,color:"#555"}}>📦 Enviado: {p.dataEnvio}</span>
                                 <span style={{fontSize:11,color:atrasado?"#ef4444":"#c9a84c",fontWeight:atrasado?700:400}}>📅 Prazo: {p.previsaoEntrega||"—"}</span>
@@ -2118,6 +2125,138 @@ export default function CRM() {
                 <div style={{padding:40,textAlign:"center",color:"#444",fontSize:13}}>
                   <div style={{fontSize:36,marginBottom:8}}>🏭</div>
                   Nenhum pedido registrado ainda
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* PRODUÇÃO / PAGAMENTO */}
+        {view==="producao" && (()=>{
+          const meses = [];
+          for(let i=5;i>=0;i--){ const d=new Date(); d.setMonth(d.getMonth()-i); meses.push({mes:d.getMonth(),ano:d.getFullYear(),label:d.toLocaleString("pt-BR",{month:"long",year:"numeric"})});}
+          const [mesSel, setMesSel] = [calMes, setCalMes]; // reusa state
+          const [anoSel, setAnoSel] = [calAno, setCalAno];
+          const mesAtual = meses.find(m=>m.mes===mesSel&&m.ano===anoSel) || meses[meses.length-1];
+
+          const parseData=(str)=>{if(!str)return null;const[d,m,a]=str.split("/");if(!d||!m||!a)return null;return{dia:+d,mes:+m-1,ano:+a};};
+
+          // Pedidos produzidos = status pronto, entregue ou instalado
+          // Mês = usa dataEntregaReal se tiver, senão previsaoEntrega
+          const produzidos = pedidosFabrica.filter(p=>{
+            if(!["pronto","entregue","instalado"].includes(p.statusFabrica)) return false;
+            const dt = parseData(p.dataEntregaReal||p.previsaoEntrega);
+            if(!dt) return false;
+            return dt.mes===mesSel && dt.ano===anoSel;
+          });
+
+          const totalProduzido = produzidos.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+
+          // Comissão (mesma lógica do CRM)
+          const totalVendasGeral = visitas.filter(v=>v.status==="fechado").reduce((a,v)=>a+valorFinal(v),0);
+          const totalVisitasGeral = visitas.length;
+          const conversaoGeral = totalVisitasGeral>0?(visitas.filter(v=>v.status==="fechado").length/totalVisitasGeral)*100:0;
+          let pctComissao = 10;
+          if(totalVendasGeral>=120000) pctComissao+=5; else if(totalVendasGeral>=100000) pctComissao+=4; else if(totalVendasGeral>=80000) pctComissao+=3; else if(totalVendasGeral>=60000) pctComissao+=2; else if(totalVendasGeral>=40000) pctComissao+=1;
+          if(conversaoGeral>=90) pctComissao+=5; else if(conversaoGeral>=80) pctComissao+=4; else if(conversaoGeral>=70) pctComissao+=3; else if(conversaoGeral>=60) pctComissao+=2; else if(conversaoGeral>=50) pctComissao+=1;
+          pctComissao = Math.min(pctComissao, 20);
+          const valorComissaoMes = totalProduzido * pctComissao / 100;
+
+          return (
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+                <div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22}}>💰 Produção & Pagamento</div>
+                  <div style={{fontSize:12,color:"#555",marginTop:2}}>Controle mensal do que foi produzido e quanto você recebe</div>
+                </div>
+              </div>
+
+              {/* Seletor de mês */}
+              <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+                {meses.map((m,i)=>{
+                  const ativo = m.mes===mesSel && m.ano===anoSel;
+                  return (
+                    <button key={i} onClick={()=>{setCalMes(m.mes);setCalAno(m.ano);}} style={{padding:"8px 16px",borderRadius:20,border:`1px solid ${ativo?"#c9a84c":"#2a2a3a"}`,background:ativo?"#c9a84c20":"transparent",color:ativo?"#c9a84c":"#777",fontSize:12,cursor:"pointer",transition:"all .15s",textTransform:"capitalize"}}>
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* KPIs do mês */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}} className="grid-4col">
+                {[
+                  {label:"Pedidos Produzidos",value:produzidos.length,color:"#3b82f6"},
+                  {label:"Total Produzido",value:fmt(totalProduzido),color:"#10b981"},
+                  {label:"Sua Comissão ("+pctComissao+"%)",value:fmt(valorComissaoMes),color:"#c9a84c"},
+                  {label:"Ticket Médio",value:produzidos.length>0?fmt(totalProduzido/produzidos.length):"—",color:"#8b5cf6"},
+                ].map((st,i)=>(
+                  <div key={i} className="sc">
+                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>{st.label}</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:i===1||i===2?16:22,color:st.color}}>{st.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Barra de progresso da comissão */}
+              <div className="card" style={{padding:18,marginBottom:20,borderColor:"#c9a84c40"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <div>
+                    <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px"}}>💎 Comissão do Mês</div>
+                    <div style={{fontSize:11,color:"#555",marginTop:2}}>Base {pctComissao}% sobre {fmt(totalProduzido)} produzido</div>
+                  </div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:26,color:"#c9a84c"}}>{fmt(valorComissaoMes)}</div>
+                </div>
+                <div style={{height:8,background:"#1a1a24",borderRadius:4,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.min(totalProduzido/META_MENSAL*100,100)}%`,background:"linear-gradient(90deg,#c9a84c,#e0bf6a)",borderRadius:4,transition:"width .8s"}}/>
+                </div>
+                <div style={{fontSize:11,color:"#555",marginTop:6}}>{Math.round(totalProduzido/META_MENSAL*100)}% da meta de produção ({fmt(META_MENSAL)})</div>
+              </div>
+
+              {/* Lista de pedidos produzidos */}
+              <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>Pedidos produzidos no mês ({produzidos.length})</div>
+              {produzidos.length===0 ? (
+                <div className="card" style={{padding:36,textAlign:"center",color:"#444",fontSize:13}}>Nenhum pedido produzido neste mês</div>
+              ) : (
+                <div className="card">
+                  {produzidos.map((p,i)=>{
+                    const st = STATUS_FABRICA[p.statusFabrica];
+                    return (
+                      <div key={p.id||i} style={{padding:"14px 16px",borderBottom:"1px solid #1a1a24"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                          <div style={{flex:1}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                              <span style={{fontFamily:"Georgia,serif",color:"#c9a84c",fontWeight:700}}>#{p.numeroPedido}</span>
+                              <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:st?.bg,color:st?.color}}>{st?.label}</span>
+                            </div>
+                            <div style={{fontSize:14,fontWeight:600}}>{p.cliente}</div>
+                            <div style={{fontSize:12,color:"#777",marginTop:2}}>{p.produtos}</div>
+                            <div style={{fontSize:11,color:"#555",marginTop:4}}>
+                              📦 Enviado: {p.dataEnvio} · 📅 Entrega: {p.dataEntregaReal||p.previsaoEntrega||"—"}
+                            </div>
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#10b981",fontWeight:700}}>{fmt(Number(p.valorPedido||0))}</div>
+                            <div style={{fontSize:11,color:"#c9a84c",marginTop:2}}>Comissão: {fmt(Number(p.valorPedido||0)*pctComissao/100)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Totalizador */}
+                  <div style={{padding:"16px",background:"#0a0a12",borderTop:"2px solid #c9a84c40",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                    <div style={{fontSize:13,color:"#aaa",fontWeight:600}}>TOTAL DO MÊS</div>
+                    <div style={{display:"flex",gap:24}}>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:10,color:"#555",textTransform:"uppercase"}}>Produzido</div>
+                        <div style={{fontFamily:"Georgia,serif",fontSize:16,color:"#10b981"}}>{fmt(totalProduzido)}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:10,color:"#555",textTransform:"uppercase"}}>Comissão ({pctComissao}%)</div>
+                        <div style={{fontFamily:"Georgia,serif",fontSize:16,color:"#c9a84c"}}>{fmt(valorComissaoMes)}</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
