@@ -71,6 +71,126 @@ const dbClientes = {
   }
 };
 
+const dbOcorrencias = {
+  async get() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ocorrencias?order=created_at.desc`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    return await res.json();
+  },
+  async insert(o) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ocorrencias`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ cliente: o.cliente, telefone: o.telefone, visita_id: o.visita_id, tipo: o.tipo, descricao: o.descricao, status_oc: o.status_oc, previsao: o.previsao, resolucao: o.resolucao, data_abertura: o.data_abertura })
+    });
+    return (await res.json())[0];
+  },
+  async update(id, o) {
+    await fetch(`${SUPABASE_URL}/rest/v1/ocorrencias?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ cliente: o.cliente, telefone: o.telefone, visita_id: o.visita_id, tipo: o.tipo, descricao: o.descricao, status_oc: o.status_oc, previsao: o.previsao, resolucao: o.resolucao, data_abertura: o.data_abertura })
+    });
+  },
+  async delete(id) {
+    await fetch(`${SUPABASE_URL}/rest/v1/ocorrencias?id=eq.${id}`, {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+  }
+};
+
+const dbTickets = {
+  async get() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/tickets?order=created_at.desc`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    return (await res.json()).map(t => ({...t, dataAbertura: t.data_abertura, quemAbriu: t.quem_abriu}));
+  },
+  async insert(t) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/tickets`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ numero: t.numero, data_abertura: t.dataAbertura, tipo: t.tipo, descricao: t.descricao, status: t.status, quem_abriu: t.quemAbriu, observacoes: t.observacoes })
+    });
+    return (await res.json())[0];
+  },
+  async update(id, t) {
+    await fetch(`${SUPABASE_URL}/rest/v1/tickets?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ numero: t.numero, data_abertura: t.dataAbertura, tipo: t.tipo, descricao: t.descricao, status: t.status, quem_abriu: t.quemAbriu, observacoes: t.observacoes })
+    });
+  },
+  async delete(id) {
+    await fetch(`${SUPABASE_URL}/rest/v1/tickets?id=eq.${id}`, {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+  }
+};
+
+const dbNotas = {
+  async get() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/notas?order=created_at.desc`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    return await res.json();
+  },
+  async insert(n) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/notas`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ titulo: n.titulo, texto: n.texto, categoria: n.categoria, fixada: n.fixada, data: n.data, cor: n.cor })
+    });
+    return (await res.json())[0];
+  },
+  async update(id, n) {
+    await fetch(`${SUPABASE_URL}/rest/v1/notas?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ titulo: n.titulo, texto: n.texto, categoria: n.categoria, fixada: n.fixada, data: n.data, cor: n.cor })
+    });
+  },
+  async delete(id) {
+    await fetch(`${SUPABASE_URL}/rest/v1/notas?id=eq.${id}`, {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+  }
+};
+
+const dbPedidos = {
+  async get() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica?order=created_at.desc`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    return (await res.json()).map(p => ({...p, numeroPedido: p.numero_pedido, dataEnvio: p.data_envio, statusFabrica: p.status_fabrica, previsaoEntrega: p.previsao_entrega, dataEntregaReal: p.data_entrega_real}));
+  },
+  async insert(p) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ numero_pedido: p.numeroPedido, data_envio: p.dataEnvio, produtos: p.produtos, status_fabrica: p.statusFabrica, previsao_entrega: p.previsaoEntrega, data_entrega_real: p.dataEntregaReal, observacoes: p.observacoes, cliente: p.cliente, visita_id: p.visita_id })
+    });
+    return (await res.json())[0];
+  },
+  async update(id, p) {
+    await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ numero_pedido: p.numeroPedido, data_envio: p.dataEnvio, produtos: p.produtos, status_fabrica: p.statusFabrica, previsao_entrega: p.previsaoEntrega, data_entrega_real: p.dataEntregaReal, observacoes: p.observacoes, cliente: p.cliente, visita_id: p.visita_id })
+    });
+  },
+  async delete(id) {
+    await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica?id=eq.${id}`, {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+  }
+};
+
 const emptyCliente = { nome:"", telefone:"", email:"", endereco:"", bairro:"", cidade:"", observacoes:"", origem:"", cpf:"", dataNascimento:"" };
 
 const STATUS = {
@@ -262,15 +382,15 @@ export default function CRM() {
   const [simDesc, setSimDesc] = useState(0);
   const [checklist, setChecklist] = useState({trena:false,amostras:false,tablet:false,cartao:false,contrato:false,caneta:false,uniforme:false});
   const emptyTicket = {numero:"", dataAbertura:hoje, tipo:"", descricao:"", status:"aberto", quemAbriu:"Felipe", observacoes:""};
-  const [tickets, setTickets] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_tickets")||"[]"); } catch{return [];} });
+  const [tickets, setTickets] = useState([]);
   const [formTicket, setFormTicket] = useState(null);
-  const saveTickets = (list) => { setTickets(list); localStorage.setItem("crm_tickets", JSON.stringify(list)); };
+  const recarregarTickets = async () => { try { setTickets(await dbTickets.get()); } catch(e) { console.error(e); } };
   const CATS_NOTA = ["💼 Trabalho","💡 Ideias","📞 Ligações","🎯 Metas","📦 Produtos","🔧 Pendências","📌 Geral"];
   const emptyNota = {titulo:"", texto:"", categoria:"📌 Geral", fixada:false, data:hoje, cor:"1e1e28"};
-  const [notas, setNotas] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_notas")||"[]"); } catch{return [];} });
+  const [notas, setNotas] = useState([]);
   const [formNota, setFormNota] = useState(null);
   const [filtroNota, setFiltroNota] = useState("Todas");
-  const saveNotas = (list) => { setNotas(list); localStorage.setItem("crm_notas", JSON.stringify(list)); };
+  const recarregarNotas = async () => { try { setNotas(await dbNotas.get()); } catch(e) { console.error(e); } };
 
   const STATUS_FABRICA = {
     aguardando:  {label:"⏳ Aguardando envio",  color:"#777",    bg:"#77777715"},
@@ -281,9 +401,9 @@ export default function CRM() {
     instalado:   {label:"🏠 Instalado",          color:"#c9a84c", bg:"#c9a84c15"},
   };
   const emptyPedido = {numeroPedido:"", dataEnvio:hoje, produtos:"", statusFabrica:"aguardando", previsaoEntrega:"", dataEntregaReal:"", observacoes:"", cliente:"", visita_id:""};
-  const [pedidosFabrica, setPedidosFabrica] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_pedidos_fabrica")||"[]"); } catch{return [];} });
+  const [pedidosFabrica, setPedidosFabrica] = useState([]);
   const [formPedido, setFormPedido] = useState(null);
-  const savePedidos = (list) => { setPedidosFabrica(list); localStorage.setItem("crm_pedidos_fabrica", JSON.stringify(list)); };
+  const recarregarPedidos = async () => { try { setPedidosFabrica(await dbPedidos.get()); } catch(e) { console.error(e); } };
 
   const calcPrazo = (dataEnvio, produtos) => {
     if(!dataEnvio) return null;
@@ -303,8 +423,10 @@ export default function CRM() {
   const carregar = async () => {
     setLoading(true);
     try {
-      const [v, c] = await Promise.all([db.get(), dbClientes.get()]);
-      setVisitas(v); setClientes(c);
+      const [v, c, oc, tk, nt, pf] = await Promise.all([
+        db.get(), dbClientes.get(), dbOcorrencias.get(), dbTickets.get(), dbNotas.get(), dbPedidos.get()
+      ]);
+      setVisitas(v); setClientes(c); setOcorrencias(oc); setTickets(tk); setNotas(nt); setPedidosFabrica(pf);
       const h = new Date().toLocaleDateString("pt-BR");
       const temHoje = v.filter(x=>x.dataVisita===h && x.status==="agendado").length>0;
       if(temHoje) setShowLembrete(true);
@@ -1168,13 +1290,16 @@ export default function CRM() {
             resolvido: {label:"Resolvido", color:"#10b981", bg:"#10b98115", icon:"✅"},
           };
 
-          const salvarOc = () => {
+          const salvarOc = async () => {
             if(!formOcorrencia.cliente||!formOcorrencia.tipo) return;
-            if(formOcorrencia._idx!==undefined){
-              const novo=[...ocorrencias]; novo[formOcorrencia._idx]={...formOcorrencia}; setOcorrencias(novo);
-            } else {
-              setOcorrencias([{...formOcorrencia, id:Date.now()}, ...ocorrencias]);
-            }
+            try {
+              if(formOcorrencia.id){
+                await dbOcorrencias.update(formOcorrencia.id, formOcorrencia);
+              } else {
+                await dbOcorrencias.insert(formOcorrencia);
+              }
+              setOcorrencias(await dbOcorrencias.get());
+            } catch(e) { console.error(e); }
             setFormOcorrencia(null);
           };
 
@@ -1194,7 +1319,7 @@ export default function CRM() {
               {formOcorrencia && (
                 <div className="card" style={{padding:20,marginBottom:16,borderColor:"#ef444440",marginTop:16}}>
                   <div style={{fontSize:11,color:"#ef4444",textTransform:"uppercase",letterSpacing:"1px",marginBottom:16}}>
-                    {formOcorrencia._idx!==undefined?"✎ Editar":"+ Nova"} Ocorrência
+                    {formOcorrencia.id?"✎ Editar":"+ Nova"} Ocorrência
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
                     <div>
@@ -1298,7 +1423,7 @@ export default function CRM() {
                         </div>
                       </div>
                       <div style={{display:"flex",gap:6,flexShrink:0}}>
-                        <button className="btn bg" style={{fontSize:12,padding:"6px 10px"}} onClick={()=>setFormOcorrencia({...oc,_idx:idx})}>✎</button>
+                        <button className="btn bg" style={{fontSize:12,padding:"6px 10px"}} onClick={()=>setFormOcorrencia({...oc})}>✎</button>
                         <button className="btn bd" style={{fontSize:12,padding:"6px 10px"}} onClick={()=>{if(window.confirm("Excluir?"))setOcorrencias(ocorrencias.filter((_,i)=>i!==idx))}}>✕</button>
                       </div>
                     </div>
@@ -1454,16 +1579,17 @@ export default function CRM() {
           const andamento = tickets.filter(t=>t.status==="andamento").length;
           const resolvidos = tickets.filter(t=>t.status==="resolvido").length;
 
-          const salvarTicket = () => {
+          const salvarTicket = async () => {
             if (!formTicket.descricao||!formTicket.tipo) return;
-            let lista;
-            if (formTicket._editIdx !== undefined) {
-              lista = tickets.map((t,i)=>i===formTicket._editIdx?{...formTicket}:t);
-            } else {
-              const num = `TK-${String(tickets.length+1).padStart(4,"0")}`;
-              lista = [{...formTicket, numero:num}, ...tickets];
-            }
-            saveTickets(lista);
+            try {
+              if (formTicket.id) {
+                await dbTickets.update(formTicket.id, formTicket);
+              } else {
+                const num = `TK-${String(tickets.length+1).padStart(4,"0")}`;
+                await dbTickets.insert({...formTicket, numero:num});
+              }
+              setTickets(await dbTickets.get());
+            } catch(e) { console.error(e); }
             setFormTicket(null);
           };
 
@@ -1496,7 +1622,7 @@ export default function CRM() {
               {formTicket && (
                 <div className="card" style={{padding:20,marginBottom:20,border:"1px solid #c9a84c40"}}>
                   <div style={{fontSize:13,color:"#c9a84c",fontWeight:700,marginBottom:16}}>
-                    {formTicket._editIdx!==undefined?"✏️ Editar Ticket":"🆕 Novo Ticket"}
+                    {formTicket.id?"✏️ Editar Ticket":"🆕 Novo Ticket"}
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
                     <div>
@@ -1560,16 +1686,17 @@ export default function CRM() {
                           <div style={{fontSize:10,color:"#444",marginTop:6}}>📅 {t.dataAbertura} · 👤 {t.quemAbriu}</div>
                         </div>
                         <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-                          <button className="sb" style={{fontSize:11}} onClick={()=>setFormTicket({...t,_editIdx:i})}>✏️ Editar</button>
+                          <button className="sb" style={{fontSize:11}} onClick={()=>setFormTicket({...t})}>✏️ Editar</button>
                           {t.status!=="resolvido" && (
-                            <button className="sb" style={{fontSize:11,color:"#10b981",borderColor:"#10b98140"}} onClick={()=>{
-                              const lista = tickets.map((tk,idx)=>idx===i?{...tk,status:"resolvido"}:tk);
-                              saveTickets(lista);
+                            <button className="sb" style={{fontSize:11,color:"#10b981",borderColor:"#10b98140"}} onClick={async()=>{
+                              await dbTickets.update(t.id,{...t,status:"resolvido"});
+                              setTickets(await dbTickets.get());
                             }}>✅ Resolver</button>
                           )}
-                          <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={()=>{
+                          <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={async()=>{
                             if(!window.confirm("Excluir este ticket?")) return;
-                            saveTickets(tickets.filter((_,idx)=>idx!==i));
+                            await dbTickets.delete(t.id);
+                            setTickets(await dbTickets.get());
                           }}>🗑️ Excluir</button>
                         </div>
                       </div>
@@ -1595,15 +1722,16 @@ export default function CRM() {
             .filter(n => filtroNota==="Todas" || n.categoria===filtroNota)
             .sort((a,b) => (b.fixada?1:0)-(a.fixada?1:0));
 
-          const salvarNota = () => {
+          const salvarNota = async () => {
             if (!formNota.titulo.trim()) return;
-            let lista;
-            if (formNota._editIdx !== undefined) {
-              lista = notas.map((n,i) => i===formNota._editIdx ? {...formNota} : n);
-            } else {
-              lista = [{...formNota, data:hoje}, ...notas];
-            }
-            saveNotas(lista);
+            try {
+              if (formNota.id) {
+                await dbNotas.update(formNota.id, formNota);
+              } else {
+                await dbNotas.insert({...formNota, data:hoje});
+              }
+              setNotas(await dbNotas.get());
+            } catch(e) { console.error(e); }
             setFormNota(null);
           };
 
@@ -1630,7 +1758,7 @@ export default function CRM() {
               {formNota && (
                 <div className="card" style={{padding:20,marginBottom:20,border:"1px solid #c9a84c40"}}>
                   <div style={{fontSize:13,color:"#c9a84c",fontWeight:700,marginBottom:14}}>
-                    {formNota._editIdx!==undefined?"✏️ Editar Nota":"🆕 Nova Nota"}
+                    {formNota.id?"✏️ Editar Nota":"🆕 Nova Nota"}
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
                     <div>
@@ -1687,14 +1815,15 @@ export default function CRM() {
                       {n.texto && <div style={{fontSize:12,color:"#aaa",lineHeight:1.6,whiteSpace:"pre-wrap",marginBottom:12,maxHeight:120,overflow:"hidden"}}>{n.texto}</div>}
                       <div style={{fontSize:10,color:"#444",marginBottom:10}}>📅 {n.data}</div>
                       <div style={{display:"flex",gap:8}}>
-                        <button className="sb" style={{fontSize:11,flex:1}} onClick={()=>setFormNota({...n,_editIdx:idxReal})}>✏️ Editar</button>
-                        <button className="sb" style={{fontSize:11,color:n.fixada?"#f59e0b":"#aaa",borderColor:n.fixada?"#f59e0b40":"#333"}} onClick={()=>{
-                          const lista = notas.map((nt,idx)=>idx===idxReal?{...nt,fixada:!nt.fixada}:nt);
-                          saveNotas(lista);
+                        <button className="sb" style={{fontSize:11,flex:1}} onClick={()=>setFormNota({...n})}>✏️ Editar</button>
+                        <button className="sb" style={{fontSize:11,color:n.fixada?"#f59e0b":"#aaa",borderColor:n.fixada?"#f59e0b40":"#333"}} onClick={async()=>{
+                          await dbNotas.update(n.id,{...n,fixada:!n.fixada});
+                          setNotas(await dbNotas.get());
                         }}>📌</button>
-                        <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={()=>{
+                        <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={async()=>{
                           if(!window.confirm("Excluir esta nota?")) return;
-                          saveNotas(notas.filter((_,idx)=>idx!==idxReal));
+                          await dbNotas.delete(n.id);
+                          setNotas(await dbNotas.get());
                         }}>🗑️</button>
                       </div>
                     </div>
@@ -1715,14 +1844,18 @@ export default function CRM() {
             return new Date(`${a}-${m}-${d}`) < new Date();
           });
 
-          const salvarPedido = () => {
+          const salvarPedido = async () => {
             if(!formPedido.numeroPedido||!formPedido.cliente) return;
             const prazo = calcPrazo(formPedido.dataEnvio, formPedido.produtos);
             const pedido = {...formPedido, previsaoEntrega: formPedido.previsaoEntrega||prazo||""};
-            let lista;
-            if(formPedido._editIdx!==undefined) lista = pedidosFabrica.map((p,i)=>i===formPedido._editIdx?pedido:p);
-            else lista = [pedido, ...pedidosFabrica];
-            savePedidos(lista);
+            try {
+              if(formPedido.id) {
+                await dbPedidos.update(formPedido.id, pedido);
+              } else {
+                await dbPedidos.insert(pedido);
+              }
+              setPedidosFabrica(await dbPedidos.get());
+            } catch(e) { console.error(e); }
             setFormPedido(null);
           };
 
@@ -1755,7 +1888,7 @@ export default function CRM() {
               {formPedido && (
                 <div className="card" style={{padding:20,marginBottom:20,border:"1px solid #c9a84c40"}}>
                   <div style={{fontSize:13,color:"#c9a84c",fontWeight:700,marginBottom:16}}>
-                    {formPedido._editIdx!==undefined?"✏️ Editar Pedido":"🆕 Novo Pedido"}
+                    {formPedido.id?"✏️ Editar Pedido":"🆕 Novo Pedido"}
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
                     <div>
@@ -1844,11 +1977,11 @@ export default function CRM() {
                               {p.observacoes && <div style={{fontSize:11,color:"#555",marginTop:4,fontStyle:"italic"}}>💬 {p.observacoes}</div>}
                             </div>
                             <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-                              <button className="sb" style={{fontSize:11}} onClick={()=>setFormPedido({...p,_editIdx:idxReal})}>✏️ Editar</button>
+                              <button className="sb" style={{fontSize:11}} onClick={()=>setFormPedido({...p})}>✏️ Editar</button>
                               <select style={{padding:"5px 8px",background:"#1e1e28",border:"1px solid #2a2a3a",borderRadius:6,color:"#aaa",fontSize:11,cursor:"pointer"}}
-                                value={p.statusFabrica} onChange={e=>{
-                                  const lista = pedidosFabrica.map((pd,idx)=>idx===idxReal?{...pd,statusFabrica:e.target.value}:pd);
-                                  savePedidos(lista);
+                                value={p.statusFabrica} onChange={async e=>{
+                                  await dbPedidos.update(p.id,{...p,statusFabrica:e.target.value});
+                                  setPedidosFabrica(await dbPedidos.get());
                                 }}>
                                 {Object.entries(STATUS_FABRICA).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                               </select>
@@ -1879,10 +2012,11 @@ export default function CRM() {
                             </div>
                             <div style={{display:"flex",gap:8,alignItems:"center"}}>
                               {p.dataEntregaReal && <span style={{fontSize:11,color:"#555"}}>Entregue: {p.dataEntregaReal}</span>}
-                              <button className="sb" style={{fontSize:11}} onClick={()=>setFormPedido({...p,_editIdx:idxReal})}>✏️</button>
-                              <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={()=>{
+                              <button className="sb" style={{fontSize:11}} onClick={()=>setFormPedido({...p})}>✏️</button>
+                              <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={async()=>{
                                 if(!window.confirm("Excluir?")) return;
-                                savePedidos(pedidosFabrica.filter((_,idx)=>idx!==idxReal));
+                                await dbPedidos.delete(p.id);
+                                setPedidosFabrica(await dbPedidos.get());
                               }}>🗑️</button>
                             </div>
                           </div>
