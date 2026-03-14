@@ -1052,6 +1052,35 @@ export default function CRM() {
               );
             })()}
 
+            {/* ALERTA ORÇAMENTO PENDENTE */}
+            {(()=>{
+              const semOrcamento = visitas.filter(v=>v.status==="visitado");
+              if(semOrcamento.length===0) return null;
+              return (
+                <div className="card" style={{padding:16,marginBottom:16,borderColor:"#f59e0b40"}}>
+                  <div style={{fontSize:11,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10,fontWeight:600}}>📋 Orçamentos Pendentes ({semOrcamento.length})</div>
+                  <div style={{fontSize:12,color:"#777",marginBottom:12}}>Visitas realizadas aguardando envio de orçamento</div>
+                  {semOrcamento.map((v,i)=>(
+                    <div key={v.id||i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<semOrcamento.length-1?"1px solid #1a1a24":"none",flexWrap:"wrap",gap:8}}>
+                      <div>
+                        <span style={{fontSize:14,fontWeight:600}}>{v.cliente}</span>
+                        <span style={{fontSize:11,color:"#555",marginLeft:8}}>Visita em {v.dataVisita||"—"}</span>
+                        {v.valorOrcamento && <span style={{fontSize:11,color:"#10b981",marginLeft:8}}>{fmt(valorFinal(v))}</span>}
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        {v.telefone && (
+                          <a href={`https://wa.me/55${v.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${v.cliente?.split(" ")[0]}! Tudo bem?\n\nSegue o orçamento conforme combinamos na visita.\n\nQualquer dúvida estou à disposição!\n\nFelipe - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                            <button className="sb" style={{fontSize:11,color:"#25d366",borderColor:"#25d36640"}}>💬 Enviar</button>
+                          </a>
+                        )}
+                        <button className="sb" style={{fontSize:11}} onClick={()=>{setSelected(v);setView("detalhe")}}>📋 Ver</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
             {/* ALERTA PEDIDOS FÁBRICA */}
             {(pedidosAlerta.atrasados.length>0 || pedidosAlerta.proximos.length>0) && (
               <div style={{marginBottom:16}}>
