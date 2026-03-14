@@ -2421,11 +2421,54 @@ export default function CRM() {
 
             {/* Score do Lead */}
             {(()=>{
+              // Se já fechou, score é 100. Se perdido, mostra diferente.
+              if(selected.status==="fechado"){
+                return (
+                  <div className="card" style={{padding:14,marginBottom:14,borderColor:"#10b98140"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:10,color:"#10b981",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>🎯 Score do Lead</div>
+                        <div style={{fontSize:13,color:"#10b981"}}>✅ Cliente Fechado</div>
+                        <div style={{fontSize:11,color:"#444",marginTop:4}}>Negócio concluído · {fmt(valorFinal(selected))}</div>
+                      </div>
+                      <div style={{textAlign:"center"}}>
+                        <div style={{fontFamily:"Georgia,serif",fontSize:36,color:"#10b981",lineHeight:1}}>100</div>
+                        <div style={{fontSize:10,color:"#444"}}>/ 100</div>
+                      </div>
+                    </div>
+                    <div style={{height:6,background:"#1a1a24",borderRadius:3,marginTop:10}}>
+                      <div style={{height:6,borderRadius:3,background:"#10b981",width:"100%"}}/>
+                    </div>
+                  </div>
+                );
+              }
+              if(selected.status==="perdido"){
+                return (
+                  <div className="card" style={{padding:14,marginBottom:14,borderColor:"#ef444440"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:10,color:"#ef4444",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>🎯 Score do Lead</div>
+                        <div style={{fontSize:13,color:"#ef4444"}}>❌ Lead Perdido</div>
+                        <div style={{fontSize:11,color:"#444",marginTop:4}}>Negócio não concluído</div>
+                      </div>
+                      <div style={{textAlign:"center"}}>
+                        <div style={{fontFamily:"Georgia,serif",fontSize:36,color:"#ef4444",lineHeight:1}}>0</div>
+                        <div style={{fontSize:10,color:"#444"}}>/ 100</div>
+                      </div>
+                    </div>
+                    <div style={{height:6,background:"#1a1a24",borderRadius:3,marginTop:10}}>
+                      <div style={{height:6,borderRadius:3,background:"#ef4444",width:"0%"}}/>
+                    </div>
+                  </div>
+                );
+              }
               const urgPts = {"Imediato":30,"Alta":20,"Média":10,"Baixa":5}[selected.urgencia]||0;
               const motPts = {"Reforma":25,"Casa nova":25,"Escritório":20,"Presente":15,"Outro":5}[selected.motivoCompra]||10;
               const valPts = valorFinal(selected)>=20000?25:valorFinal(selected)>=10000?15:valorFinal(selected)>=5000?10:5;
               const prodPts = (selected.produtos||"").toLowerCase().includes("motorizado")?15:selected.produtos?10:0;
-              const score = Math.min(urgPts+motPts+valPts+prodPts,100);
+              // Bônus por status avançado
+              const statusPts = selected.status==="orcamento_enviado"?10:selected.status==="visitado"?5:0;
+              const score = Math.min(urgPts+motPts+valPts+prodPts+statusPts,100);
               const cor = score>=70?"#10b981":score>=40?"#c9a84c":"#ef4444";
               const label = score>=70?"🔥 Lead Quente":score>=40?"⚡ Lead Morno":"❄️ Lead Frio";
               return (
@@ -2435,7 +2478,7 @@ export default function CRM() {
                       <div style={{fontSize:10,color:cor,textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>🎯 Score do Lead</div>
                       <div style={{fontSize:13,color:"#aaa"}}>{label}</div>
                       <div style={{fontSize:11,color:"#444",marginTop:4}}>
-                        Urgência: +{urgPts} · Motivo: +{motPts} · Valor: +{valPts} · Produto: +{prodPts}
+                        Urgência: +{urgPts} · Motivo: +{motPts} · Valor: +{valPts} · Produto: +{prodPts}{statusPts>0?` · Status: +${statusPts}`:""}
                       </div>
                     </div>
                     <div style={{textAlign:"center"}}>
