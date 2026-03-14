@@ -833,6 +833,7 @@ export default function CRM() {
         <div className={`nav ${view==="rota"?"on":""}`} onClick={()=>navTo("rota")}>🗺️ Rota do Dia</div>
         <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>navTo("clientes")}>👥 Clientes</div>
         <div className={`nav ${view==="comissao"?"on":""}`} onClick={()=>navTo("comissao")}>💰 Comissão</div>
+        <div className={`nav ${view==="fechados"?"on":""}`} onClick={()=>navTo("fechados")}>✅ Fechados</div>
         <div className={`nav ${view==="simulador"?"on":""}`} onClick={()=>navTo("simulador")}>🧮 Simulador</div>
         <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>navTo("cancelamentos")}>📊 Cancelamentos</div>
         <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>navTo("ocorrencias")}>🔧 Ocorrências</div>
@@ -864,6 +865,7 @@ export default function CRM() {
         <div className={`nav ${view==="rota"?"on":""}`} onClick={()=>setView("rota")}>🗺️ Rota do Dia</div>
         <div className={`nav ${view==="clientes"||view==="detalhe-cliente"?"on":""}`} onClick={()=>setView("clientes")}>👥 Clientes</div>
         <div className={`nav ${view==="comissao"?"on":""}`} onClick={()=>setView("comissao")}>💰 Comissão</div>
+        <div className={`nav ${view==="fechados"?"on":""}`} onClick={()=>setView("fechados")}>✅ Fechados</div>
         <div className={`nav ${view==="simulador"?"on":""}`} onClick={()=>setView("simulador")}>🧮 Simulador</div>
         <div className={`nav ${view==="cancelamentos"?"on":""}`} onClick={()=>setView("cancelamentos")}>📊 Cancelamentos</div>
         <div className={`nav ${view==="ocorrencias"?"on":""}`} onClick={()=>setView("ocorrencias")}>🔧 Ocorrências</div>
@@ -1247,6 +1249,86 @@ export default function CRM() {
             </div>
           </div>
         )}
+
+        {/* FECHADOS */}
+        {view==="fechados" && (()=>{
+          const fechados = visitas.filter(v=>v.status==="fechado").sort((a,b)=>{
+            const parseD=(s)=>{if(!s)return 0;const[d,m,a]=s.split("/");return new Date(`${a}-${m}-${d}`).getTime();};
+            return parseD(b.dataVisita)-parseD(a.dataVisita);
+          });
+          const [searchFechado, setSearchFechado] = [search, setSearch];
+          const receitaTotal = fechados.reduce((a,v)=>a+valorFinal(v),0);
+          const ticketMedio = fechados.length>0?receitaTotal/fechados.length:0;
+
+          const filtrados = fechados.filter(v=>
+            searchFechado===""||v.cliente?.toLowerCase().includes(searchFechado.toLowerCase())||v.telefone?.includes(searchFechado)||v.produtos?.toLowerCase().includes(searchFechado.toLowerCase())
+          );
+
+          return (
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+                <div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22}}>✅ Negócios Fechados</div>
+                  <div style={{fontSize:12,color:"#555",marginTop:2}}>{fechados.length} negócio{fechados.length!==1?"s":""} fechado{fechados.length!==1?"s":""}</div>
+                </div>
+              </div>
+
+              {/* KPIs */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}} className="grid-4col">
+                {[
+                  {label:"Total Fechados",value:fechados.length,color:"#10b981"},
+                  {label:"Receita Total",value:fmt(receitaTotal),color:"#c9a84c"},
+                  {label:"Ticket Médio",value:fmt(ticketMedio),color:"#8b5cf6"},
+                  {label:"Conversão Geral",value:`${stats.conversao}%`,color:"#3b82f6"},
+                ].map((st,i)=>(
+                  <div key={i} className="sc">
+                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>{st.label}</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:i===1||i===2?16:22,color:st.color}}>{st.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Busca */}
+              <input className="inp" placeholder="🔍 Buscar por cliente, telefone, produto..." value={searchFechado} onChange={e=>setSearch(e.target.value)} style={{marginBottom:16}}/>
+
+              {/* Lista */}
+              {filtrados.length===0 ? (
+                <div className="card" style={{padding:36,textAlign:"center",color:"#444",fontSize:13}}>Nenhum negócio fechado encontrado</div>
+              ) : (
+                <div className="card">
+                  {filtrados.map((v,i)=>(
+                    <div key={v.id||i} style={{padding:"16px",borderBottom:"1px solid #1a1a24",cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+                        <div style={{flex:1,minWidth:200}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
+                            <span style={{fontSize:15,fontWeight:700,color:"#e8e4dc"}}>{v.cliente}</span>
+                            <span className="tag" style={{background:"#10b98115",color:"#10b981"}}>✅ Fechado</span>
+                          </div>
+                          <div style={{fontSize:12,color:"#777",marginTop:2}}>
+                            {v.dataVisita}{v.ambiente?` · ${v.ambiente}`:""}{v.produtos?` · ${v.produtos}`:""}
+                          </div>
+                          <div style={{fontSize:11,color:"#555",marginTop:4}}>
+                            📞 {v.telefone||"—"}{v.endereco?` · 📍 ${v.endereco}`:""}
+                          </div>
+                        </div>
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#10b981",fontWeight:700}}>{fmt(valorFinal(v))}</div>
+                          {Number(v.desconto)>0 && <div style={{fontSize:11,color:"#f59e0b",marginTop:2}}>Desconto: {v.desconto}%</div>}
+                          <div style={{fontSize:11,color:"#555",marginTop:4}}>Criado: {v.dataCriacao||"—"}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Totalizador */}
+                  <div style={{padding:"16px",background:"#0a0a12",borderTop:"2px solid #10b98140",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                    <div style={{fontSize:13,color:"#aaa",fontWeight:600}}>TOTAL — {filtrados.length} negócio{filtrados.length!==1?"s":""}</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#10b981"}}>{fmt(filtrados.reduce((a,v)=>a+valorFinal(v),0))}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* CANCELAMENTOS */}
         {view==="cancelamentos" && (()=>{
