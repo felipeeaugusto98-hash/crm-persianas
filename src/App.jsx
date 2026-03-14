@@ -235,6 +235,197 @@ export default function CRM() {
   const [loginErro, setLoginErro] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
+  const [visitas, setVisitas] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [view, setView] = useState("dashboard");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState({...empty});
+  const [formCliente, setFormCliente] = useState({...emptyCliente});
+  const [selectedCliente, setSelectedCliente] = useState(null);
+  const [nota, setNota] = useState("");
+  const [emailTexto, setEmailTexto] = useState("");
+  const [importStep, setImportStep] = useState("colar");
+  const [filtro, setFiltro] = useState("todos");
+  const [search, setSearch] = useState("");
+  const [searchCliente, setSearchCliente] = useState("");
+  const [calMes, setCalMes] = useState(new Date().getMonth());
+  const [calAno, setCalAno] = useState(new Date().getFullYear());
+  const [diaSelected, setDiaSelected] = useState(null);
+  const [showLembrete, setShowLembrete] = useState(false);
+  const [ocorrencias, setOcorrencias] = useState([]);
+  const [formOcorrencia, setFormOcorrencia] = useState(null);
+  const emptyOc = { cliente:"", telefone:"", visita_id:"", tipo:"", descricao:"", status_oc:"aberto", previsao:"", resolucao:"", data_abertura: new Date().toLocaleDateString("pt-BR") };
+  const [simValor, setSimValor] = useState("");
+  const [simDesc, setSimDesc] = useState(0);
+  const [checklist, setChecklist] = useState({trena:false,amostras:false,tablet:false,cartao:false,contrato:false,caneta:false,uniforme:false});
+  const emptyTicket = {numero:"", dataAbertura:hoje, tipo:"", descricao:"", status:"aberto", quemAbriu:"Felipe", observacoes:""};
+  const [tickets, setTickets] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_tickets")||"[]"); } catch{return [];} });
+  const [formTicket, setFormTicket] = useState(null);
+  const saveTickets = (list) => { setTickets(list); localStorage.setItem("crm_tickets", JSON.stringify(list)); };
+  const CATS_NOTA = ["💼 Trabalho","💡 Ideias","📞 Ligações","🎯 Metas","📦 Produtos","🔧 Pendências","📌 Geral"];
+  const emptyNota = {titulo:"", texto:"", categoria:"📌 Geral", fixada:false, data:hoje, cor:"1e1e28"};
+  const [notas, setNotas] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_notas")||"[]"); } catch{return [];} });
+  const [formNota, setFormNota] = useState(null);
+  const [filtroNota, setFiltroNota] = useState("Todas");
+  const saveNotas = (list) => { setNotas(list); localStorage.setItem("crm_notas", JSON.stringify(list)); };
+
+  const STATUS_FABRICA = {
+    aguardando:  {label:"⏳ Aguardando envio",  color:"#777",    bg:"#77777715"},
+    enviado:     {label:"📦 Enviado p/ fábrica", color:"#3b82f6", bg:"#3b82f615"},
+    producao:    {label:"⚙️ Em produção",        color:"#f59e0b", bg:"#f59e0b15"},
+    pronto:      {label:"✅ Pronto p/ entrega",  color:"#10b981", bg:"#10b98115"},
+    entregue:    {label:"🚚 Entregue",           color:"#8b5cf6", bg:"#8b5cf615"},
+    instalado:   {label:"🏠 Instalado",          color:"#c9a84c", bg:"#c9a84c15"},
+  };
+  const emptyPedido = {numeroPedido:"", dataEnvio:hoje, produtos:"", statusFabrica:"aguardando", previsaoEntrega:"", dataEntregaReal:"", observacoes:"", cliente:"", visita_id:""};
+  const [pedidosFabrica, setPedidosFabrica] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_pedidos_fabrica")||"[]"); } catch{return [];} });
+  const [formPedido, setFormPedido] = useState(null);
+  const savePedidos = (list) => { setPedidosFabrica(list); localStorage.setItem("crm_pedidos_fabrica", JSON.stringify(list)); };
+
+  const calcPrazo = (dataEnvio, produtos) => {
+    if(!dataEnvio) return null;
+    const [d,m,a] = dataEnvio.split("/");
+    if(!d||!m||!a) return null;
+    const base = new Date(`${a}-${m}-${d}`);
+    const temCortina = (produtos||"").toLowerCase().includes("cortina");
+    let diasUteis = temCortina ? 25 : 20;
+    let count = 0; let dt = new Date(base);
+    while(count < diasUteis) {
+      dt.setDate(dt.getDate()+1);
+      if(dt.getDay()!==0 && dt.getDay()!==6) count++;
+    }
+    return dt.toLocaleDateString("pt-BR");
+  };
+
+  const carregar = async () => {
+    setLoading(true);
+    try {
+      const [v, c] = await Promise.all([db.get(), dbClientes.get()]);
+      setVisitas(v); setClientes(c);
+      const h = new Date().toLocaleDateString("pt-BR");
+      const temHoje = v.filter(x=>x.dataVisita===h && x.status==="agendado").length>0;
+      if(temHoje) setShowLembrete(true);
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  };
+
+  useEffect(() => { if(sessao) carregar(); }, [sessao]);
+
+  const stats = useMemo(() => {
+    const fechados = visitas.filter(v=>v.status==="fechado");
+    const agora = new Date();
+    const diaSemana = agora.getDay();
+    const inicioSemana = new Date(agora);
+    inicioSemana.setDate(agora.getDate() - (diaSemana===0?6:diaSemana-1));
+    inicioSemana.setHours(0,0,0,0);
+    const fimSemana = new Date(inicioSemana);
+    fimSemana.setDate(inicioSemana.getDate()+6);
+    fimSemana.setHours(23,59,59,999);
+
+    const parseData = (str) => {
+      if(!str) return null;
+      const [d,m,a] = str.split("/");
+      return new Date(`${a}-${m}-${d}`);
+    };
+
+    const fechadosSemana = fechados.filter(v=>{
+      const d = parseData(v.dataVisita);
+      return d && d>=inicioSemana && d<=fimSemana;
+    });
+    const visitasSemana = visitas.filter(v=>{
+      const d = parseData(v.dataVisita);
+      return d && d>=inicioSemana && d<=fimSemana;
+    });
+
+    return {
+      total: visitas.length,
+      fechados: fechados.length,
+      pendentes: visitas.filter(v=>v.status==="orcamento_enviado").length,
+      hoje: visitas.filter(v=>v.dataVisita===hoje).length,
+      receita: fechados.reduce((a,v)=>a+valorFinal(v),0),
+      conversao: visitas.length>0?((fechados.length/visitas.length)*100).toFixed(0):0,
+      semana: {
+        receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0),
+        vendas: fechadosSemana.length,
+        visitas: visitasSemana.length,
+        conversao: visitasSemana.length>0?Math.round(fechadosSemana.length/visitasSemana.length*100):0,
+        inicio: inicioSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
+        fim: fimSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
+      }
+    };
+  }, [visitas]);
+
+  const rankingProdutos = useMemo(()=>{
+    const mapa = {};
+    visitas.forEach(v=>{
+      (v.produtos||"").split(",").forEach(p=>{
+        const pt=p.trim(); if(!pt) return;
+        if(!mapa[pt]) mapa[pt]={total:0,fechados:0,receita:0};
+        mapa[pt].total++;
+        if(v.status==="fechado"){mapa[pt].fechados++;mapa[pt].receita+=valorFinal(v);}
+      });
+    });
+    return Object.entries(mapa).map(([nome,d])=>({
+      nome, total:d.total, fechados:d.fechados,
+      receita:d.receita,
+      conversao:d.total>0?Math.round(d.fechados/d.total*100):0
+    })).sort((a,b)=>b.receita-a.receita);
+  }, [visitas]);
+
+  const tempoMedio = useMemo(()=>{
+    const parseData=(str)=>{if(!str)return null;const[d,m,a]=str.split("/");return new Date(`${a}-${m}-${d}`);};
+    const fechados = visitas.filter(v=>v.status==="fechado"&&v.dataVisita&&v.dataCriacao);
+    const dias = fechados.map(v=>{
+      const criacao=parseData(v.dataCriacao); const visita=parseData(v.dataVisita);
+      if(!criacao||!visita) return null;
+      return Math.abs(Math.floor((visita-criacao)/(1000*60*60*24)));
+    }).filter(d=>d!==null&&d>=0&&d<=90);
+    return dias.length>0?Math.round(dias.reduce((a,b)=>a+b,0)/dias.length):null;
+  }, [visitas]);
+
+  const filtradas = useMemo(() => visitas.filter(v => {
+    const s1=filtro==="todos"||v.status===filtro;
+    const s2=search===""||v.cliente?.toLowerCase().includes(search.toLowerCase())||v.telefone?.includes(search);
+    return s1&&s2;
+  }), [visitas, filtro, search]);
+
+  const comissao = useMemo(() => {
+    const fechados = visitas.filter(v => v.status === "fechado");
+    const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0);
+    const totalVisitas = visitas.length;
+    const conversao = totalVisitas > 0 ? (fechados.length / totalVisitas) * 100 : 0;
+
+    let pct = 10;
+
+    if (totalVendas >= 120000) pct += 5;
+    else if (totalVendas >= 100000) pct += 4;
+    else if (totalVendas >= 80000) pct += 3;
+    else if (totalVendas >= 60000) pct += 2;
+    else if (totalVendas >= 40000) pct += 1;
+
+    if (conversao >= 90) pct += 5;
+    else if (conversao >= 80) pct += 4;
+    else if (conversao >= 70) pct += 3;
+    else if (conversao >= 60) pct += 2;
+    else if (conversao >= 50) pct += 1;
+
+    pct = Math.min(pct, 20);
+
+    const bonus1 = totalVendas >= 120000 ? 5 : totalVendas >= 100000 ? 4 : totalVendas >= 80000 ? 3 : totalVendas >= 60000 ? 2 : totalVendas >= 40000 ? 1 : 0;
+    const bonus2 = conversao >= 90 ? 5 : conversao >= 80 ? 4 : conversao >= 70 ? 3 : conversao >= 60 ? 2 : conversao >= 50 ? 1 : 0;
+
+    return {
+      pct, totalVendas, conversao: conversao.toFixed(1),
+      valorComissao: totalVendas * pct / 100,
+      bonus1, bonus2,
+      proximaFaixaVenda: totalVendas < 40000 ? 40000 : totalVendas < 60000 ? 60000 : totalVendas < 80000 ? 80000 : totalVendas < 100000 ? 100000 : totalVendas < 120000 ? 120000 : null,
+      proximaFaixaConv: conversao < 50 ? 50 : conversao < 60 ? 60 : conversao < 70 ? 70 : conversao < 80 ? 80 : conversao < 90 ? 90 : null,
+    };
+  }, [visitas]);
+
   const fazerLogin = async () => {
     if(!loginEmail||!loginSenha) return;
     setLoginLoading(true); setLoginErro("");
@@ -310,85 +501,6 @@ export default function CRM() {
       </div>
     </div>
   );
-  const [visitas, setVisitas] = useState([]);
-  const [clientes, setClientes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [view, setView] = useState("dashboard");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState({...empty});
-  const [formCliente, setFormCliente] = useState({...emptyCliente});
-  const [selectedCliente, setSelectedCliente] = useState(null);
-  const [nota, setNota] = useState("");
-  const [emailTexto, setEmailTexto] = useState("");
-  const [importStep, setImportStep] = useState("colar");
-  const [filtro, setFiltro] = useState("todos");
-  const [search, setSearch] = useState("");
-  const [searchCliente, setSearchCliente] = useState("");
-  const [calMes, setCalMes] = useState(new Date().getMonth());
-  const [calAno, setCalAno] = useState(new Date().getFullYear());
-  const [diaSelected, setDiaSelected] = useState(null);
-  const [showLembrete, setShowLembrete] = useState(false);
-  const [ocorrencias, setOcorrencias] = useState([]);
-  const [formOcorrencia, setFormOcorrencia] = useState(null);
-  const emptyOc = { cliente:"", telefone:"", visita_id:"", tipo:"", descricao:"", status_oc:"aberto", previsao:"", resolucao:"", data_abertura: new Date().toLocaleDateString("pt-BR") };
-  const [simValor, setSimValor] = useState("");
-  const [simDesc, setSimDesc] = useState(0);
-  const [checklist, setChecklist] = useState({trena:false,amostras:false,tablet:false,cartao:false,contrato:false,caneta:false,uniforme:false});
-  const emptyTicket = {numero:"", dataAbertura:hoje, tipo:"", descricao:"", status:"aberto", quemAbriu:"Felipe", observacoes:""};
-  const [tickets, setTickets] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_tickets")||"[]"); } catch{return [];} });
-  const [formTicket, setFormTicket] = useState(null);
-  const saveTickets = (list) => { setTickets(list); localStorage.setItem("crm_tickets", JSON.stringify(list)); };
-  const CATS_NOTA = ["💼 Trabalho","💡 Ideias","📞 Ligações","🎯 Metas","📦 Produtos","🔧 Pendências","📌 Geral"];
-  const emptyNota = {titulo:"", texto:"", categoria:"📌 Geral", fixada:false, data:hoje, cor:"1e1e28"};
-  const [notas, setNotas] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_notas")||"[]"); } catch{return [];} });
-  const [formNota, setFormNota] = useState(null);
-  const [filtroNota, setFiltroNota] = useState("Todas");
-  const saveNotas = (list) => { setNotas(list); localStorage.setItem("crm_notas", JSON.stringify(list)); };
-
-  const STATUS_FABRICA = {
-    aguardando:  {label:"⏳ Aguardando envio",  color:"#777",    bg:"#77777715"},
-    enviado:     {label:"📦 Enviado p/ fábrica", color:"#3b82f6", bg:"#3b82f615"},
-    producao:    {label:"⚙️ Em produção",        color:"#f59e0b", bg:"#f59e0b15"},
-    pronto:      {label:"✅ Pronto p/ entrega",  color:"#10b981", bg:"#10b98115"},
-    entregue:    {label:"🚚 Entregue",           color:"#8b5cf6", bg:"#8b5cf615"},
-    instalado:   {label:"🏠 Instalado",          color:"#c9a84c", bg:"#c9a84c15"},
-  };
-  const emptyPedido = {numeroPedido:"", dataEnvio:hoje, produtos:"", statusFabrica:"aguardando", previsaoEntrega:"", dataEntregaReal:"", observacoes:"", cliente:"", visita_id:""};
-  const [pedidosFabrica, setPedidosFabrica] = useState(() => { try { return JSON.parse(localStorage.getItem("crm_pedidos_fabrica")||"[]"); } catch{return [];} });
-  const [formPedido, setFormPedido] = useState(null);
-  const savePedidos = (list) => { setPedidosFabrica(list); localStorage.setItem("crm_pedidos_fabrica", JSON.stringify(list)); };
-
-  const calcPrazo = (dataEnvio, produtos) => {
-    if(!dataEnvio) return null;
-    const [d,m,a] = dataEnvio.split("/");
-    if(!d||!m||!a) return null;
-    const base = new Date(`${a}-${m}-${d}`);
-    const temCortina = (produtos||"").toLowerCase().includes("cortina");
-    let diasUteis = temCortina ? 25 : 20;
-    let count = 0; let dt = new Date(base);
-    while(count < diasUteis) {
-      dt.setDate(dt.getDate()+1);
-      if(dt.getDay()!==0 && dt.getDay()!==6) count++;
-    }
-    return dt.toLocaleDateString("pt-BR");
-  };
-
-  useEffect(() => { carregar(); }, []);
-
-  const carregar = async () => {
-    setLoading(true);
-    try {
-      const [v, c] = await Promise.all([db.get(), dbClientes.get()]);
-      setVisitas(v); setClientes(c);
-      // Mostra lembrete se tiver visitas hoje
-      const h = new Date().toLocaleDateString("pt-BR");
-      const temHoje = v.filter(x=>x.dataVisita===h && x.status==="agendado").length>0;
-      if(temHoje) setShowLembrete(true);
-    } catch(e) { console.error(e); }
-    setLoading(false);
-  };
 
   const salvarCliente = async () => {
     if (!formCliente.nome) return;
@@ -412,87 +524,6 @@ export default function CRM() {
   const clientesFiltrados = clientes.filter(c =>
     searchCliente==="" || c.nome?.toLowerCase().includes(searchCliente.toLowerCase()) || c.telefone?.includes(searchCliente)
   );
-
-  const stats = useMemo(() => {
-    const fechados = visitas.filter(v=>v.status==="fechado");
-    // Semana atual (seg a dom)
-    const agora = new Date();
-    const diaSemana = agora.getDay(); // 0=dom
-    const inicioSemana = new Date(agora);
-    inicioSemana.setDate(agora.getDate() - (diaSemana===0?6:diaSemana-1));
-    inicioSemana.setHours(0,0,0,0);
-    const fimSemana = new Date(inicioSemana);
-    fimSemana.setDate(inicioSemana.getDate()+6);
-    fimSemana.setHours(23,59,59,999);
-
-    const parseData = (str) => {
-      if(!str) return null;
-      const [d,m,a] = str.split("/");
-      return new Date(`${a}-${m}-${d}`);
-    };
-
-    const fechadosSemana = fechados.filter(v=>{
-      const d = parseData(v.dataVisita);
-      return d && d>=inicioSemana && d<=fimSemana;
-    });
-    const visitasSemana = visitas.filter(v=>{
-      const d = parseData(v.dataVisita);
-      return d && d>=inicioSemana && d<=fimSemana;
-    });
-
-    return {
-      total: visitas.length,
-      fechados: fechados.length,
-      pendentes: visitas.filter(v=>v.status==="orcamento_enviado").length,
-      hoje: visitas.filter(v=>v.dataVisita===hoje).length,
-      receita: fechados.reduce((a,v)=>a+valorFinal(v),0),
-      conversao: visitas.length>0?((fechados.length/visitas.length)*100).toFixed(0):0,
-      semana: {
-        receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0),
-        vendas: fechadosSemana.length,
-        visitas: visitasSemana.length,
-        conversao: visitasSemana.length>0?Math.round(fechadosSemana.length/visitasSemana.length*100):0,
-        inicio: inicioSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
-        fim: fimSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
-      }
-    };
-  }, [visitas]);
-
-  // Ranking de produtos
-  const rankingProdutos = useMemo(()=>{
-    const mapa = {};
-    visitas.forEach(v=>{
-      (v.produtos||"").split(",").forEach(p=>{
-        const pt=p.trim(); if(!pt) return;
-        if(!mapa[pt]) mapa[pt]={total:0,fechados:0,receita:0};
-        mapa[pt].total++;
-        if(v.status==="fechado"){mapa[pt].fechados++;mapa[pt].receita+=valorFinal(v);}
-      });
-    });
-    return Object.entries(mapa).map(([nome,d])=>({
-      nome, total:d.total, fechados:d.fechados,
-      receita:d.receita,
-      conversao:d.total>0?Math.round(d.fechados/d.total*100):0
-    })).sort((a,b)=>b.receita-a.receita);
-  }, [visitas]);
-
-  // Tempo médio de fechamento
-  const tempoMedio = useMemo(()=>{
-    const parseData=(str)=>{if(!str)return null;const[d,m,a]=str.split("/");return new Date(`${a}-${m}-${d}`);};
-    const fechados = visitas.filter(v=>v.status==="fechado"&&v.dataVisita&&v.dataCriacao);
-    const dias = fechados.map(v=>{
-      const criacao=parseData(v.dataCriacao); const visita=parseData(v.dataVisita);
-      if(!criacao||!visita) return null;
-      return Math.abs(Math.floor((visita-criacao)/(1000*60*60*24)));
-    }).filter(d=>d!==null&&d>=0&&d<=90);
-    return dias.length>0?Math.round(dias.reduce((a,b)=>a+b,0)/dias.length):null;
-  }, [visitas]);
-
-  const filtradas = useMemo(() => visitas.filter(v => {
-    const s1=filtro==="todos"||v.status===filtro;
-    const s2=search===""||v.cliente?.toLowerCase().includes(search.toLowerCase())||v.telefone?.includes(search);
-    return s1&&s2;
-  }), [visitas, filtro, search]);
 
   const salvar = async () => {
     if (!form.cliente) return;
@@ -529,43 +560,6 @@ export default function CRM() {
     setVisitas(visitas.map(v=>v.id===selected.id?att:v));
     setSelected(att);
   };
-
-  const comissao = useMemo(() => {
-    const fechados = visitas.filter(v => v.status === "fechado");
-    const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0);
-    const totalVisitas = visitas.length;
-    const conversao = totalVisitas > 0 ? (fechados.length / totalVisitas) * 100 : 0;
-
-    // Base 10%
-    let pct = 10;
-
-    // Premissa 1: volume de vendas
-    if (totalVendas >= 120000) pct += 5;
-    else if (totalVendas >= 100000) pct += 4;
-    else if (totalVendas >= 80000) pct += 3;
-    else if (totalVendas >= 60000) pct += 2;
-    else if (totalVendas >= 40000) pct += 1;
-
-    // Premissa 2: taxa de conversão
-    if (conversao >= 90) pct += 5;
-    else if (conversao >= 80) pct += 4;
-    else if (conversao >= 70) pct += 3;
-    else if (conversao >= 60) pct += 2;
-    else if (conversao >= 50) pct += 1;
-
-    pct = Math.min(pct, 20); // máximo 20%
-
-    const bonus1 = totalVendas >= 120000 ? 5 : totalVendas >= 100000 ? 4 : totalVendas >= 80000 ? 3 : totalVendas >= 60000 ? 2 : totalVendas >= 40000 ? 1 : 0;
-    const bonus2 = conversao >= 90 ? 5 : conversao >= 80 ? 4 : conversao >= 70 ? 3 : conversao >= 60 ? 2 : conversao >= 50 ? 1 : 0;
-
-    return {
-      pct, totalVendas, conversao: conversao.toFixed(1),
-      valorComissao: totalVendas * pct / 100,
-      bonus1, bonus2,
-      proximaFaixaVenda: totalVendas < 40000 ? 40000 : totalVendas < 60000 ? 60000 : totalVendas < 80000 ? 80000 : totalVendas < 100000 ? 100000 : totalVendas < 120000 ? 120000 : null,
-      proximaFaixaConv: conversao < 50 ? 50 : conversao < 60 ? 60 : conversao < 70 ? 70 : conversao < 80 ? 80 : conversao < 90 ? 90 : null,
-    };
-  }, [visitas]);
 
   const navTo = (v) => { setView(v); setMenuOpen(false); };
 
