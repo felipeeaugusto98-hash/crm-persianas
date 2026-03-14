@@ -405,6 +405,15 @@ export default function CRM() {
   const [formPedido, setFormPedido] = useState(null);
   const recarregarPedidos = async () => { try { setPedidosFabrica(await dbPedidos.get()); } catch(e) { console.error(e); } };
 
+  // Toast de confirmação
+  const [toast, setToast] = useState(null);
+  const showToast = (msg, tipo="sucesso") => { setToast({msg,tipo}); setTimeout(()=>setToast(null), 3000); };
+
+  // Buscas para seções migradas
+  const [searchOcorrencia, setSearchOcorrencia] = useState("");
+  const [searchTicket, setSearchTicket] = useState("");
+  const [searchPedido, setSearchPedido] = useState("");
+
   const calcPrazo = (dataEnvio, produtos) => {
     if(!dataEnvio) return null;
     const [d,m,a] = dataEnvio.split("/");
@@ -548,6 +557,17 @@ export default function CRM() {
     };
   }, [visitas]);
 
+  // Alertas de pedidos perto do prazo / atrasados
+  const pedidosAlerta = useMemo(() => {
+    const hj = new Date(); hj.setHours(0,0,0,0);
+    const em3dias = new Date(hj); em3dias.setDate(em3dias.getDate()+3);
+    const parseData = (str) => { if(!str) return null; const [d,m,a]=str.split("/"); return new Date(`${a}-${m}-${d}`); };
+    const emAndamento = pedidosFabrica.filter(p=>!["entregue","instalado"].includes(p.statusFabrica));
+    const atrasados = emAndamento.filter(p=>{ const d=parseData(p.previsaoEntrega); return d && d<hj; });
+    const proximos = emAndamento.filter(p=>{ const d=parseData(p.previsaoEntrega); return d && d>=hj && d<=em3dias; });
+    return { atrasados, proximos };
+  }, [pedidosFabrica]);
+
   const fazerLogin = async () => {
     if(!loginEmail||!loginSenha) return;
     setLoginLoading(true); setLoginErro("");
@@ -632,7 +652,8 @@ export default function CRM() {
       else await dbClientes.insert(formCliente);
       const c = await dbClientes.get(); setClientes(c);
       setView("clientes");
-    } catch(e) { console.error(e); }
+      showToast("Cliente salvo com sucesso!");
+    } catch(e) { console.error(e); showToast("Erro ao salvar cliente","erro"); }
     setSaving(false);
   };
 
@@ -656,7 +677,8 @@ export default function CRM() {
       if (form.id) await db.update(form.id,{...form,historico});
       else await db.insert({...form,historico,dataCriacao:hoje});
       await carregar(); setView("lista");
-    } catch(e) { console.error(e); }
+      showToast("Visita salva com sucesso!");
+    } catch(e) { console.error(e); showToast("Erro ao salvar visita","erro"); }
     setSaving(false);
   };
 
@@ -745,7 +767,21 @@ export default function CRM() {
           .graficos-grid{grid-template-columns:1fr!important}
           .hide-mobile{display:none!important}
         }
+        @keyframes toastIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+        @keyframes toastOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+        .toast{position:fixed;top:20px;right:20px;z-index:9999;padding:14px 22px;border-radius:10px;font-size:13px;font-weight:500;animation:toastIn .3s ease;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;align-items:center;gap:10px}
+        .toast.saindo{animation:toastOut .3s ease forwards}
+        .toast-sucesso{background:#10b98125;border:1px solid #10b98150;color:#10b981}
+        .toast-erro{background:#ef444425;border:1px solid #ef444450;color:#ef4444}
+        .toast-aviso{background:#f59e0b25;border:1px solid #f59e0b50;color:#f59e0b}
       `}</style>
+
+      {/* TOAST */}
+      {toast && (
+        <div className={`toast toast-${toast.tipo}`}>
+          {toast.tipo==="sucesso"?"✅":toast.tipo==="erro"?"❌":"⚠️"} {toast.msg}
+        </div>
+      )}
 
       {/* TOPBAR mobile */}
       <div className="topbar">
@@ -1005,6 +1041,45 @@ export default function CRM() {
                 </div>
               );
             })()}
+
+            {/* ALERTA PEDIDOS FÁBRICA */}
+            {(pedidosAlerta.atrasados.length>0 || pedidosAlerta.proximos.length>0) && (
+              <div style={{marginBottom:16}}>
+                {pedidosAlerta.atrasados.length>0 && (
+                  <div className="card" style={{padding:16,marginBottom:10,borderColor:"#ef444440"}}>
+                    <div style={{fontSize:11,color:"#ef4444",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10,fontWeight:600}}>🚨 Pedidos Atrasados ({pedidosAlerta.atrasados.length})</div>
+                    {pedidosAlerta.atrasados.map((p,i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<pedidosAlerta.atrasados.length-1?"1px solid #1a1a24":"none",flexWrap:"wrap",gap:8}}>
+                        <div>
+                          <span style={{fontFamily:"Georgia,serif",color:"#c9a84c",fontWeight:700,marginRight:8}}>#{p.numeroPedido}</span>
+                          <span style={{fontSize:13}}>{p.cliente}</span>
+                          <span style={{fontSize:11,color:"#ef4444",marginLeft:8}}>Prazo: {p.previsaoEntrega}</span>
+                        </div>
+                        <div style={{display:"flex",gap:8}}>
+                          {p.telefone && <a href={`https://wa.me/55${(p.telefone||"").replace(/\D/g,"")}?text=${encodeURIComponent(`Olá! Estou verificando o status do pedido #${p.numeroPedido}. Em breve retorno com atualizações.`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}><button className="sb" style={{fontSize:11,color:"#25d366",borderColor:"#25d36640"}}>💬 WhatsApp</button></a>}
+                          <button className="sb" style={{fontSize:11}} onClick={()=>{setView("fabrica");setFormPedido({...p})}}>✏️ Editar</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {pedidosAlerta.proximos.length>0 && (
+                  <div className="card" style={{padding:16,borderColor:"#f59e0b40"}}>
+                    <div style={{fontSize:11,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10,fontWeight:600}}>⚠️ Vencem em até 3 dias ({pedidosAlerta.proximos.length})</div>
+                    {pedidosAlerta.proximos.map((p,i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<pedidosAlerta.proximos.length-1?"1px solid #1a1a24":"none",flexWrap:"wrap",gap:8}}>
+                        <div>
+                          <span style={{fontFamily:"Georgia,serif",color:"#c9a84c",fontWeight:700,marginRight:8}}>#{p.numeroPedido}</span>
+                          <span style={{fontSize:13}}>{p.cliente}</span>
+                          <span style={{fontSize:11,color:"#f59e0b",marginLeft:8}}>Prazo: {p.previsaoEntrega}</span>
+                        </div>
+                        <button className="sb" style={{fontSize:11}} onClick={()=>{setView("fabrica");setFormPedido({...p})}}>📋 Ver</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div style={{fontFamily:"Georgia,serif",fontSize:16,marginBottom:10}}>📅 Agendadas</div>
             <div className="card" style={{marginBottom:16}}>
@@ -1299,7 +1374,8 @@ export default function CRM() {
                 await dbOcorrencias.insert(formOcorrencia);
               }
               setOcorrencias(await dbOcorrencias.get());
-            } catch(e) { console.error(e); }
+              showToast("Ocorrência salva!");
+            } catch(e) { console.error(e); showToast("Erro ao salvar","erro"); }
             setFormOcorrencia(null);
           };
 
@@ -1314,6 +1390,9 @@ export default function CRM() {
                 </div>
                 <button className="btn bp" onClick={()=>setFormOcorrencia({...emptyOc})}>+ Nova Ocorrência</button>
               </div>
+
+              {/* Busca */}
+              <input className="inp" placeholder="🔍 Buscar por cliente, tipo..." value={searchOcorrencia} onChange={e=>setSearchOcorrencia(e.target.value)} style={{marginBottom:16,marginTop:10}}/>
 
               {/* Formulário */}
               {formOcorrencia && (
@@ -1403,7 +1482,7 @@ export default function CRM() {
                 <div className="card" style={{padding:36,textAlign:"center",color:"#444",fontSize:13}}>Nenhuma ocorrência registrada 🎉</div>
               )}
               <div className="card">
-                {ocorrencias.map((oc,idx)=>(
+                {ocorrencias.filter(oc=>searchOcorrencia===""||oc.cliente?.toLowerCase().includes(searchOcorrencia.toLowerCase())||oc.tipo?.toLowerCase().includes(searchOcorrencia.toLowerCase())||oc.descricao?.toLowerCase().includes(searchOcorrencia.toLowerCase())).map((oc,idx)=>(
                   <div key={oc.id||idx} style={{padding:"14px 16px",borderBottom:"1px solid #1a1a24"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
                       <div style={{flex:1}}>
@@ -1424,7 +1503,7 @@ export default function CRM() {
                       </div>
                       <div style={{display:"flex",gap:6,flexShrink:0}}>
                         <button className="btn bg" style={{fontSize:12,padding:"6px 10px"}} onClick={()=>setFormOcorrencia({...oc})}>✎</button>
-                        <button className="btn bd" style={{fontSize:12,padding:"6px 10px"}} onClick={()=>{if(window.confirm("Excluir?"))setOcorrencias(ocorrencias.filter((_,i)=>i!==idx))}}>✕</button>
+                        <button className="btn bd" style={{fontSize:12,padding:"6px 10px"}} onClick={async()=>{if(window.confirm("Excluir?")){await dbOcorrencias.delete(oc.id);setOcorrencias(await dbOcorrencias.get());showToast("Ocorrência excluída!");}}}>✕</button>
                       </div>
                     </div>
                   </div>
@@ -1589,7 +1668,8 @@ export default function CRM() {
                 await dbTickets.insert({...formTicket, numero:num});
               }
               setTickets(await dbTickets.get());
-            } catch(e) { console.error(e); }
+              showToast("Ticket salvo!");
+            } catch(e) { console.error(e); showToast("Erro ao salvar","erro"); }
             setFormTicket(null);
           };
 
@@ -1602,6 +1682,9 @@ export default function CRM() {
                 </div>
                 <button className="btn bp" onClick={()=>setFormTicket({...emptyTicket})}>+ Novo Ticket</button>
               </div>
+
+              {/* Busca */}
+              <input className="inp" placeholder="🔍 Buscar por descrição, tipo..." value={searchTicket} onChange={e=>setSearchTicket(e.target.value)} style={{marginBottom:16}}/>
 
               {/* KPIs */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}} className="grid-4col">
@@ -1670,7 +1753,7 @@ export default function CRM() {
                     Nenhum ticket registrado ainda
                   </div>
                 )}
-                {tickets.map((t,i)=>{
+                {tickets.filter(t=>searchTicket===""||t.descricao?.toLowerCase().includes(searchTicket.toLowerCase())||t.tipo?.toLowerCase().includes(searchTicket.toLowerCase())||t.numero?.toLowerCase().includes(searchTicket.toLowerCase())).map((t,i)=>{
                   const st = STATUS_TK[t.status]||STATUS_TK.aberto;
                   return (
                     <div key={i} style={{padding:"16px",borderBottom:"1px solid #1a1a24"}}>
@@ -1691,6 +1774,7 @@ export default function CRM() {
                             <button className="sb" style={{fontSize:11,color:"#10b981",borderColor:"#10b98140"}} onClick={async()=>{
                               await dbTickets.update(t.id,{...t,status:"resolvido"});
                               setTickets(await dbTickets.get());
+                              showToast("Ticket resolvido!");
                             }}>✅ Resolver</button>
                           )}
                           <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={async()=>{
@@ -1731,7 +1815,8 @@ export default function CRM() {
                 await dbNotas.insert({...formNota, data:hoje});
               }
               setNotas(await dbNotas.get());
-            } catch(e) { console.error(e); }
+              showToast("Nota salva!");
+            } catch(e) { console.error(e); showToast("Erro ao salvar","erro"); }
             setFormNota(null);
           };
 
@@ -1855,7 +1940,8 @@ export default function CRM() {
                 await dbPedidos.insert(pedido);
               }
               setPedidosFabrica(await dbPedidos.get());
-            } catch(e) { console.error(e); }
+              showToast("Pedido salvo!");
+            } catch(e) { console.error(e); showToast("Erro ao salvar","erro"); }
             setFormPedido(null);
           };
 
@@ -1869,7 +1955,8 @@ export default function CRM() {
                 <button className="btn bp" onClick={()=>setFormPedido({...emptyPedido})}>+ Novo Pedido</button>
               </div>
 
-              {/* KPIs */}
+              {/* Busca */}
+              <input className="inp" placeholder="🔍 Buscar por cliente, nº pedido, produto..." value={searchPedido} onChange={e=>setSearchPedido(e.target.value)} style={{marginBottom:16}}/>
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}} className="grid-4col">
                 {[
                   {l:"Em andamento", v:emAndamento.length,      c:"#3b82f6"},
@@ -1952,7 +2039,7 @@ export default function CRM() {
                 <div style={{marginBottom:20}}>
                   <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>Em Andamento</div>
                   <div className="card">
-                    {emAndamento.map((p,i)=>{
+                    {emAndamento.filter(p=>searchPedido===""||p.cliente?.toLowerCase().includes(searchPedido.toLowerCase())||p.numeroPedido?.toLowerCase().includes(searchPedido.toLowerCase())||p.produtos?.toLowerCase().includes(searchPedido.toLowerCase())).map((p,i)=>{
                       const st = STATUS_FABRICA[p.statusFabrica]||STATUS_FABRICA.aguardando;
                       const idxReal = pedidosFabrica.indexOf(p);
                       const atrasado = p.previsaoEntrega && (()=>{
@@ -1999,7 +2086,7 @@ export default function CRM() {
                 <div>
                   <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>Concluídos ({concluidos.length})</div>
                   <div className="card">
-                    {concluidos.map((p,i)=>{
+                    {concluidos.filter(p=>searchPedido===""||p.cliente?.toLowerCase().includes(searchPedido.toLowerCase())||p.numeroPedido?.toLowerCase().includes(searchPedido.toLowerCase())||p.produtos?.toLowerCase().includes(searchPedido.toLowerCase())).map((p,i)=>{
                       const st = STATUS_FABRICA[p.statusFabrica];
                       const idxReal = pedidosFabrica.indexOf(p);
                       return (
