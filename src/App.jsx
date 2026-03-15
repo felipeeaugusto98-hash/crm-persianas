@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 const SUPABASE_URL = "https://yoobeijjzzszltmhnsnr.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlvb2JlaWpqenpzemx0bWhuc25yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjg4NTMsImV4cCI6MjA4ODc0NDg1M30.ld-Nw95O56F9YMrDZob4mSKP6Je9vto7GaYvjOQ8jPo";
@@ -417,41 +417,72 @@ export default function CRM() {
   const [searchTicket, setSearchTicket] = useState("");
   const [searchPedido, setSearchPedido] = useState("");
 
-  // Visualizador
-  const vizCanvasRef = useRef(null);
-  const [vizImg, setVizImg] = useState(null);
-  const [vizRect, setVizRect] = useState(null);
-  const [vizDrawing, setVizDrawing] = useState(false);
-  const [vizStart, setVizStart] = useState(null);
-  const [vizCor, setVizCor] = useState("#f5f0e6");
-  const [vizOpacidade, setVizOpacidade] = useState(0.6);
-  const [vizStep, setVizStep] = useState("foto");
+  // Visualizador IA
+  const [vizModelo, setVizModelo] = useState("Persiana Rolo");
+  const [vizBlackout, setVizBlackout] = useState(false);
+  const [vizFotoAmbiente, setVizFotoAmbiente] = useState(null);
+  const [vizFotoTecido, setVizFotoTecido] = useState(null);
+  const [vizResultado, setVizResultado] = useState(null);
+  const [vizLoading, setVizLoading] = useState(false);
+  const [vizErro, setVizErro] = useState("");
 
-  // Desenhar canvas do visualizador
-  useEffect(() => {
-    const canvas = vizCanvasRef.current; if(!canvas||!vizImg) return;
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-    img.onload = () => {
-      const maxW = Math.min(800, window.innerWidth-280);
-      const scale = maxW/img.width;
-      canvas.width = maxW;
-      canvas.height = img.height*scale;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      if(vizRect){
-        ctx.fillStyle = vizCor;
-        ctx.globalAlpha = vizOpacidade;
-        ctx.fillRect(vizRect.x, vizRect.y, vizRect.w, vizRect.h);
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = "#c9a84c";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6,4]);
-        ctx.strokeRect(vizRect.x, vizRect.y, vizRect.w, vizRect.h);
-        ctx.setLineDash([]);
+  const OPENAI_KEY = process.env.REACT_APP_OPENAI_KEY || "";
+
+  const gerarSimulacao = async () => {
+    if(!vizFotoAmbiente||!vizFotoTecido) return;
+    setVizLoading(true); setVizErro(""); setVizResultado(null);
+    try {
+      // Step 1: GPT-4o analisa as fotos
+      const analiseRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          max_tokens: 500,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: `Analyze these two images. Image 1 is a room/window where a ${vizModelo}${vizBlackout?" with blackout fabric":""} will be installed. Image 2 is a close-up of the fabric texture. Describe in detail: 1) The room environment, wall colors, window shape and size, lighting. 2) The fabric color, texture, pattern. Be specific and concise. Answer in English.` },
+              { type: "image_url", image_url: { url: vizFotoAmbiente, detail: "low" } },
+              { type: "image_url", image_url: { url: vizFotoTecido, detail: "low" } }
+            ]
+          }]
+        })
+      });
+      const analise = await analiseRes.json();
+      const descricao = analise.choices?.[0]?.message?.content || "";
+
+      // Step 2: DALL-E 3 gera a imagem
+      const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({
+          model: "dall-e-3",
+          prompt: `Ultra-realistic professional interior design photograph. ${descricao}. Show the exact same room with a beautiful ${vizModelo}${vizBlackout?" (blackout)" : ""} professionally installed on the window. The blind/curtain must use the exact fabric described above. Show the mounting hardware, tube at top, and proper installation details. The image must look like a real photograph taken by an interior designer to show a client. Photorealistic quality, natural lighting, high resolution.`,
+          n: 1,
+          size: "1024x1024",
+          quality: "standard"
+        })
+      });
+      const dalle = await dalleRes.json();
+      if(dalle.data?.[0]?.url) {
+        setVizResultado(dalle.data[0].url);
+      } else {
+        setVizErro(dalle.error?.message || "Erro ao gerar imagem. Tente novamente.");
       }
-    };
-    img.src = vizImg;
-  }, [vizImg, vizRect, vizCor, vizOpacidade]);
+    } catch(e) {
+      console.error(e);
+      setVizErro("Erro de conexão. Verifique sua internet e tente novamente.");
+    }
+    setVizLoading(false);
+  };
+
+  const fileToBase64 = (file) => new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
+  });
 
   const calcPrazo = (dataEnvio, produtos) => {
     if(!dataEnvio) return null;
@@ -785,7 +816,7 @@ export default function CRM() {
         .topbar{display:none;position:fixed;top:0;left:0;right:0;z-index:100;background:#080810;border-bottom:1px solid #1a1a24;padding:14px 16px;align-items:center;justify-content:space-between}
         .bottomnav{display:none}
         .overlay{display:none;position:fixed;inset:0;background:#00000080;z-index:150}
-        .drawer{position:fixed;left:0;top:0;bottom:0;width:240px;background:#080810;border-right:1px solid #1a1a24;z-index:200;transform:translateX(-100%);transition:transform .25s;padding:20px 12px;display:flex;flex-direction:column;gap:4px}
+        .drawer{position:fixed;left:0;top:0;bottom:0;width:240px;background:#080810;border-right:1px solid #1a1a24;z-index:200;transform:translateX(-100%);transition:transform .25s;padding:20px 12px 40px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
         .drawer.open{transform:translateX(0)}
         .nav{cursor:pointer;padding:11px 14px;border-radius:8px;font-size:14px;transition:all .18s;color:#777;display:flex;align-items:center;gap:10px}
         .nav:hover{background:#1a1a25;color:#e8e4dc}.nav.on{background:#c9a84c15;color:#c9a84c;border-left:2px solid #c9a84c}
@@ -885,8 +916,8 @@ export default function CRM() {
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>navTo("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div className={`nav ${view==="visualizador"?"on":""}`} onClick={()=>navTo("visualizador")}>🎨 Visualizador</div>
-        <div style={{flex:1}}/>
-        <button className="btn bp" style={{width:"100%",padding:12,marginTop:16}} onClick={()=>navTo("novo")}>+ Nova Visita</button>
+        <div style={{marginTop:12}}/>
+        <button className="btn bp" style={{width:"100%",padding:12}} onClick={()=>navTo("novo")}>+ Nova Visita</button>
         <div style={{marginTop:14,padding:"12px 8px",borderTop:"1px solid #1a1a24"}}>
           <div style={{fontSize:10,color:"#444"}}>RECEITA DO MÊS</div>
           <div style={{fontFamily:"Georgia,serif",fontSize:15,color:"#10b981",marginTop:4}}>{fmt(stats.receita)}</div>
@@ -3169,131 +3200,119 @@ export default function CRM() {
         )}
 
 
-        {/* VISUALIZADOR */}
-        {view==="visualizador" && (()=>{
-          const TECIDOS = [
-            {nome:"Branco",cor:"#f5f0e6"},{nome:"Off-White",cor:"#e8e0d0"},{nome:"Bege",cor:"#d4c5a9"},
-            {nome:"Areia",cor:"#c2b280"},{nome:"Dourado",cor:"#c9a84c"},{nome:"Caramelo",cor:"#a0724a"},
-            {nome:"Marrom",cor:"#6b4226"},{nome:"Chocolate",cor:"#3e2723"},{nome:"Cinza Claro",cor:"#bdbdbd"},
-            {nome:"Cinza",cor:"#757575"},{nome:"Grafite",cor:"#424242"},{nome:"Preto",cor:"#1a1a1a"},
-            {nome:"Nude Rosé",cor:"#d4a89a"},{nome:"Verde Sage",cor:"#9caf88"},{nome:"Azul Celeste",cor:"#87ceeb"},
-            {nome:"Azul Marinho",cor:"#1a3a5c"},{nome:"Vinho",cor:"#722f37"},{nome:"Terracota",cor:"#cc6644"},
-          ];
+        {/* VISUALIZADOR IA */}
+        {view==="visualizador" && (
+          <div style={{maxWidth:700}}>
+            <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>🎨 Simulador de Ambientes</div>
+            <div style={{fontSize:12,color:"#555",marginBottom:24}}>Gere uma simulação realista com inteligência artificial</div>
 
-          const carregarFoto = (e) => {
-            const file = e.target.files?.[0]; if(!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => { setVizImg(ev.target.result); setVizRect(null); setVizStep("area"); };
-            reader.readAsDataURL(file);
-          };
-
-          const getPos = (e) => {
-            const canvas = vizCanvasRef.current; if(!canvas) return {x:0,y:0};
-            const rect = canvas.getBoundingClientRect();
-            const cEvt = e.touches?e.touches[0]:e;
-            return { x:cEvt.clientX-rect.left, y:cEvt.clientY-rect.top };
-          };
-          const onDown = (e) => { e.preventDefault(); setVizDrawing(true); const p=getPos(e); setVizStart(p); setVizRect(null); };
-          const onMove = (e) => { if(!vizDrawing||!vizStart) return; e.preventDefault(); const p=getPos(e); setVizRect({x:Math.min(vizStart.x,p.x),y:Math.min(vizStart.y,p.y),w:Math.abs(p.x-vizStart.x),h:Math.abs(p.y-vizStart.y)}); };
-          const onUp = () => { setVizDrawing(false); if(vizRect&&vizRect.w>10&&vizRect.h>10) setVizStep("tecido"); };
-
-          const baixarImagem = () => {
-            const canvas = vizCanvasRef.current; if(!canvas) return;
-            const link = document.createElement("a");
-            link.download = "visualizacao-persiana.png";
-            link.href = canvas.toDataURL("image/png");
-            link.click();
-          };
-
-          return (
-            <div>
-              <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>🎨 Visualizador de Ambientes</div>
-              <div style={{fontSize:12,color:"#555",marginBottom:20}}>Veja como a persiana ou cortina fica na janela do cliente</div>
-
-              {/* Steps indicator */}
-              <div style={{display:"flex",gap:8,marginBottom:20}}>
-                {[{s:"foto",label:"1. Foto",icon:"📷"},{s:"area",label:"2. Área",icon:"✂️"},{s:"tecido",label:"3. Tecido",icon:"🎨"}].map(st=>(
-                  <div key={st.s} style={{padding:"8px 16px",borderRadius:20,background:vizStep===st.s?"#c9a84c20":"#12121a",border:`1px solid ${vizStep===st.s?"#c9a84c":"#2a2a3a"}`,color:vizStep===st.s?"#c9a84c":"#555",fontSize:12,fontWeight:vizStep===st.s?600:400}}>
-                    {st.icon} {st.label}
-                  </div>
-                ))}
+            <div className="card" style={{padding:24}}>
+              {/* Modelo */}
+              <div style={{marginBottom:20}}>
+                <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"1px"}}>Modelo da Persiana ou Cortina</label>
+                <select className="inp" value={vizModelo} onChange={e=>setVizModelo(e.target.value)}>
+                  {["Persiana Rolo","Persiana Painel","Persiana Romana","Persiana de Madeira","Persiana Veneziana","Persiana Plissada","Persiana Colmeia","Persiana Zebra (Double Vision)","Persiana Triple Shade","Cortina","Cortina Motorizada"].map(m=>
+                    <option key={m}>{m}</option>
+                  )}
+                </select>
               </div>
 
-              {/* Step 1: Upload foto */}
-              {vizStep==="foto" && (
-                <div className="card" style={{padding:32,textAlign:"center"}}>
-                  <div style={{fontSize:48,marginBottom:16}}>📷</div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:18,marginBottom:8}}>Tire uma foto ou envie a imagem da janela</div>
-                  <div style={{fontSize:12,color:"#555",marginBottom:24}}>A foto será usada como base para simular a persiana/cortina</div>
-                  <label style={{display:"inline-block",padding:"14px 32px",background:"#c9a84c",color:"#0d0d1a",borderRadius:10,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"Georgia,serif"}}>
-                    📷 Escolher Foto
-                    <input type="file" accept="image/*" capture="environment" onChange={carregarFoto} style={{display:"none"}}/>
-                  </label>
+              {/* Blackout toggle */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",background:"#0d0d15",borderRadius:10,border:"1px solid #2a2a3a",marginBottom:20}}>
+                <span style={{fontSize:14,color:"#e8e4dc"}}>Tecido Blackout</span>
+                <div onClick={()=>setVizBlackout(!vizBlackout)} style={{width:48,height:26,borderRadius:13,background:vizBlackout?"#c9a84c":"#2a2a3a",cursor:"pointer",transition:"all .2s",position:"relative"}}>
+                  <div style={{width:20,height:20,borderRadius:10,background:"#fff",position:"absolute",top:3,left:vizBlackout?25:3,transition:"left .2s",boxShadow:"0 2px 4px rgba(0,0,0,0.3)"}}/>
                 </div>
-              )}
+              </div>
 
-              {/* Step 2 & 3: Canvas + controls */}
-              {(vizStep==="area"||vizStep==="tecido") && (
-                <div>
-                  {vizStep==="area" && (
-                    <div style={{padding:"12px 16px",background:"#f59e0b15",border:"1px solid #f59e0b30",borderRadius:10,marginBottom:14,fontSize:13,color:"#f59e0b"}}>
-                      ✂️ Arraste sobre a janela para marcar a área onde ficará a persiana/cortina
-                    </div>
+              {/* Foto do Ambiente */}
+              <div style={{marginBottom:20}}>
+                <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"1px"}}>Foto do Ambiente (obrigatório)</label>
+                <label style={{display:"flex",alignItems:"center",gap:12,padding:"16px 18px",background:"#0d0d15",borderRadius:10,border:`1px solid ${vizFotoAmbiente?"#10b98140":"#2a2a3a"}`,cursor:"pointer",transition:"all .15s"}}>
+                  {vizFotoAmbiente ? (
+                    <img src={vizFotoAmbiente} alt="ambiente" style={{width:80,height:60,objectFit:"cover",borderRadius:8}}/>
+                  ) : (
+                    <div style={{width:80,height:60,borderRadius:8,background:"#1a1a24",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>📷</div>
                   )}
-
-                  <div style={{position:"relative",marginBottom:16,borderRadius:12,overflow:"hidden",border:"1px solid #2a2a3a"}}>
-                    <canvas
-                      ref={vizCanvasRef}
-                      style={{display:"block",width:"100%",cursor:vizStep==="area"?"crosshair":"default",touchAction:"none"}}
-                      onMouseDown={vizStep==="area"?onDown:undefined}
-                      onMouseMove={vizStep==="area"?onMove:undefined}
-                      onMouseUp={vizStep==="area"?onUp:undefined}
-                      onTouchStart={vizStep==="area"?onDown:undefined}
-                      onTouchMove={vizStep==="area"?onMove:undefined}
-                      onTouchEnd={vizStep==="area"?onUp:undefined}
-                    />
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,color:vizFotoAmbiente?"#10b981":"#aaa"}}>{vizFotoAmbiente?"✅ Foto carregada":"Foto do Ambiente (obrigatório)"}</div>
+                    <div style={{fontSize:11,color:"#555",marginTop:2}}>{vizFotoAmbiente?"Toque para trocar":"Tire uma foto da janela do cliente"}</div>
                   </div>
+                  <input type="file" accept="image/*" capture="environment" onChange={async e=>{
+                    const f=e.target.files?.[0]; if(!f) return;
+                    setVizFotoAmbiente(await fileToBase64(f));
+                  }} style={{display:"none"}}/>
+                </label>
+              </div>
 
-                  {/* Controles de tecido */}
-                  {vizStep==="tecido" && vizRect && (
-                    <div className="card" style={{padding:18,marginBottom:16}}>
-                      <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px",marginBottom:14}}>🎨 Escolha a cor do tecido</div>
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:16}} className="grid-4col">
-                        {TECIDOS.map(t=>(
-                          <div key={t.nome} onClick={()=>setVizCor(t.cor)} style={{cursor:"pointer",textAlign:"center",padding:8,borderRadius:10,border:`2px solid ${vizCor===t.cor?"#c9a84c":"#2a2a3a"}`,background:vizCor===t.cor?"#c9a84c10":"transparent",transition:"all .15s"}}>
-                            <div style={{width:"100%",paddingBottom:"60%",borderRadius:6,background:t.cor,border:"1px solid #33333355",marginBottom:6}}/>
-                            <div style={{fontSize:10,color:vizCor===t.cor?"#c9a84c":"#777"}}>{t.nome}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div style={{marginBottom:16}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                          <label style={{fontSize:11,color:"#777"}}>Transparência</label>
-                          <span style={{fontSize:11,color:"#c9a84c"}}>{Math.round(vizOpacidade*100)}%</span>
-                        </div>
-                        <input type="range" min="0.1" max="1" step="0.05" value={vizOpacidade} onChange={e=>setVizOpacidade(+e.target.value)} style={{width:"100%",accentColor:"#c9a84c"}}/>
-                      </div>
-
-                      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                        <button className="btn bp" onClick={baixarImagem}>📥 Baixar Imagem</button>
-                        <button className="btn bg" onClick={()=>{setVizRect(null);setVizStep("area")}}>✂️ Redesenhar Área</button>
-                        <button className="btn bg" onClick={()=>{setVizImg(null);setVizRect(null);setVizStep("foto")}}>📷 Nova Foto</button>
-                      </div>
-                    </div>
+              {/* Foto do Tecido */}
+              <div style={{marginBottom:24}}>
+                <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"1px"}}>Tecido - Foto Zoom (obrigatório)</label>
+                <label style={{display:"flex",alignItems:"center",gap:12,padding:"16px 18px",background:"#0d0d15",borderRadius:10,border:`1px solid ${vizFotoTecido?"#10b98140":"#2a2a3a"}`,cursor:"pointer",transition:"all .15s"}}>
+                  {vizFotoTecido ? (
+                    <img src={vizFotoTecido} alt="tecido" style={{width:80,height:60,objectFit:"cover",borderRadius:8}}/>
+                  ) : (
+                    <div style={{width:80,height:60,borderRadius:8,background:"#1a1a24",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>🧵</div>
                   )}
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,color:vizFotoTecido?"#10b981":"#aaa"}}>{vizFotoTecido?"✅ Tecido carregado":"Tecido - Foto Zoom (obrigatório)"}</div>
+                    <div style={{fontSize:11,color:"#555",marginTop:2}}>{vizFotoTecido?"Toque para trocar":"Tire uma foto de perto do tecido"}</div>
+                  </div>
+                  <input type="file" accept="image/*" capture="environment" onChange={async e=>{
+                    const f=e.target.files?.[0]; if(!f) return;
+                    setVizFotoTecido(await fileToBase64(f));
+                  }} style={{display:"none"}}/>
+                </label>
+              </div>
 
-                  {vizStep==="area" && vizRect && vizRect.w>10 && (
-                    <div style={{display:"flex",gap:10}}>
-                      <button className="btn bp" onClick={()=>setVizStep("tecido")}>Confirmar Área →</button>
-                      <button className="btn bg" onClick={()=>setVizRect(null)}>Redesenhar</button>
-                    </div>
-                  )}
+              {/* Erro */}
+              {vizErro && (
+                <div style={{padding:"12px 16px",background:"#ef444415",border:"1px solid #ef444430",borderRadius:8,color:"#ef4444",fontSize:13,marginBottom:16}}>
+                  ⚠️ {vizErro}
                 </div>
               )}
+
+              {/* Botão Gerar */}
+              <button className="btn bp" style={{width:"100%",padding:16,fontSize:16,fontFamily:"Georgia,serif",letterSpacing:1}} onClick={gerarSimulacao} disabled={vizLoading||!vizFotoAmbiente||!vizFotoTecido}>
+                {vizLoading ? "⏳ Gerando simulação... (15-30s)" : "✨ Gerar Simulação"}
+              </button>
+
+              {!vizFotoAmbiente||!vizFotoTecido ? (
+                <div style={{fontSize:11,color:"#555",textAlign:"center",marginTop:10}}>Envie as duas fotos para habilitar</div>
+              ) : null}
             </div>
-          );
-        })()}
+
+            {/* Loading animation */}
+            {vizLoading && (
+              <div className="card" style={{padding:40,textAlign:"center",marginTop:20}}>
+                <div style={{fontSize:40,marginBottom:12,animation:"pulse 1.5s infinite"}}>🎨</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:16,color:"#c9a84c",marginBottom:8}}>Gerando simulação com IA...</div>
+                <div style={{fontSize:12,color:"#555"}}>A inteligência artificial está criando uma imagem realista da {vizModelo} na janela do cliente</div>
+                <div style={{width:200,height:4,background:"#1a1a24",borderRadius:2,margin:"16px auto 0",overflow:"hidden"}}>
+                  <div style={{width:"60%",height:"100%",background:"linear-gradient(90deg,#c9a84c,#e0bf6a)",borderRadius:2,animation:"loading 1.5s infinite"}}/>
+                </div>
+                <style>{`@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}} @keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}`}</style>
+              </div>
+            )}
+
+            {/* Resultado */}
+            {vizResultado && (
+              <div style={{marginTop:20}}>
+                <div className="card" style={{overflow:"hidden"}}>
+                  <img src={vizResultado} alt="Simulação" style={{width:"100%",display:"block"}}/>
+                </div>
+                <div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}>
+                  <a href={vizResultado} download="simulacao-persiana.png" target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                    <button className="btn bp">📥 Baixar Imagem</button>
+                  </a>
+                  <button className="btn bg" onClick={()=>{setVizResultado(null);gerarSimulacao()}}>🔄 Gerar Novamente</button>
+                  <button className="btn bg" onClick={()=>{setVizFotoAmbiente(null);setVizFotoTecido(null);setVizResultado(null);setVizErro("")}}>📷 Nova Simulação</button>
+                </div>
+                <div style={{fontSize:11,color:"#555",marginTop:10}}>💡 Dica: baixe a imagem e envie pelo WhatsApp para o cliente</div>
+              </div>
+            )}
+          </div>
+        )}
 
         {view==="novo"&&(
           <div>
