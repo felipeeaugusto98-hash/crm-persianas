@@ -433,69 +433,50 @@ export default function CRM() {
     if(!vizFotoAmbiente||!vizFotoTecido||!vizOpenaiKey) return;
     setVizLoading(true); setVizErro(""); setVizResultado(null);
     try {
-      // Step 1: GPT-4o analisa as fotos com máximo detalhe
-      const analiseRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      // Converter base64 para blob
+      const b64ToBlob = (b64, mime="image/png") => {
+        const byteStr = atob(b64.split(",")[1]);
+        const ab = new ArrayBuffer(byteStr.length);
+        const ia = new Uint8Array(ab);
+        for(let i=0;i<byteStr.length;i++) ia[i]=byteStr.charCodeAt(i);
+        return new Blob([ab],{type:mime});
+      };
+
+      const formData = new FormData();
+      formData.append("model", "gpt-image-1");
+      formData.append("image[]", b64ToBlob(vizFotoAmbiente), "ambiente.png");
+      formData.append("image[]", b64ToBlob(vizFotoTecido), "tecido.png");
+      formData.append("prompt", `You are an expert window treatment installer. Look at these two images:
+
+Image 1: A real photo of a room with a window. This is the EXACT room where the product will be installed.
+Image 2: A close-up photo of the EXACT fabric/material to be used.
+
+TASK: Edit Image 1 (the room photo) to show a "${vizModelo}"${vizBlackout?" with blackout fabric":""} professionally installed on the window. 
+
+CRITICAL REQUIREMENTS:
+- Keep the room, walls, floor, furniture, and all surroundings EXACTLY as they are in the original photo
+- ONLY add the ${vizModelo} to the window area
+- The blind/curtain fabric MUST match the exact color, texture, and pattern visible in Image 2 (the fabric photo)
+- Show proper mounting hardware: aluminum rail/tube at the top, side brackets
+- The ${vizModelo} should look naturally installed with realistic shadows and lighting matching the room
+- The result must look like a real photograph, not a render
+- Do NOT change anything else in the room - only add the window treatment`);
+      formData.append("size", "1024x1024");
+      formData.append("quality", "high");
+
+      const res = await fetch("https://api.openai.com/v1/images/edits", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${vizOpenaiKey}` },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          max_tokens: 800,
-          messages: [{
-            role: "user",
-            content: [
-              { type: "text", text: `You are an expert interior designer. I will show you 2 images:
-
-IMAGE 1: A photo of a real room/window where a "${vizModelo}"${vizBlackout?" with blackout fabric":""} will be installed.
-IMAGE 2: A close-up photo of the EXACT fabric/material that will be used.
-
-Analyze BOTH images with extreme precision and provide:
-
-1. ROOM DESCRIPTION: Exact wall color (hex if possible), floor type, window frame color and material, window dimensions relative to room, lighting conditions (natural/artificial, warm/cool), any furniture or objects visible, ceiling type.
-
-2. WINDOW DETAILS: Shape (rectangular, arched, etc), frame material and color, how many panes, if there are handles/locks visible, the exact position in the wall.
-
-3. FABRIC/MATERIAL DESCRIPTION: Exact colors (list all colors visible), texture type (smooth, woven, ribbed, striped), pattern (solid, horizontal stripes, geometric), opacity level (sheer, translucent, opaque), material appearance (cotton-like, polyester-like, natural fiber, synthetic).
-
-Be extremely specific about colors - use descriptive terms like "warm beige with golden undertones" or "light cream with horizontal woven stripes alternating between ivory and sandy tan". This description will be used to generate a photorealistic image, so accuracy is critical.` },
-              { type: "image_url", image_url: { url: vizFotoAmbiente, detail: "high" } },
-              { type: "image_url", image_url: { url: vizFotoTecido, detail: "high" } }
-            ]
-          }]
-        })
+        headers: { Authorization: `Bearer ${vizOpenaiKey}` },
+        body: formData
       });
-      const analise = await analiseRes.json();
-      const descricao = analise.choices?.[0]?.message?.content || "";
-
-      if(!descricao) { setVizErro("Erro na análise das fotos. Tente novamente."); setVizLoading(false); return; }
-
-      // Step 2: DALL-E 3 gera a imagem com prompt ultra-específico
-      const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${vizOpenaiKey}` },
-        body: JSON.stringify({
-          model: "dall-e-3",
-          prompt: `Create an ultra-realistic professional photograph of a real room interior. This must look like an actual photo, NOT a render or 3D visualization.
-
-CRITICAL ROOM DETAILS (reproduce EXACTLY):
-${descricao}
-
-PRODUCT TO SHOW: A "${vizModelo}"${vizBlackout?" with blackout fabric":""} professionally installed on the window described above.
-
-CRITICAL FABRIC REQUIREMENTS: The ${vizModelo} MUST use the EXACT fabric described above - match the precise colors, texture, pattern, and opacity. This is the most important aspect.
-
-INSTALLATION DETAILS: Show proper mounting hardware - aluminum tube/rail at the top, side brackets matching the window frame. The ${vizModelo} should cover the window appropriately with realistic draping/folding consistent with this product type.
-
-PHOTO REQUIREMENTS: Shot from inside the room, natural perspective as if standing 2-3 meters from the window. Natural lighting consistent with the room description. Sharp focus. No watermarks. Must look indistinguishable from a real photograph taken by a professional interior photographer.`,
-          n: 1,
-          size: "1024x1024",
-          quality: "hd"
-        })
-      });
-      const dalle = await dalleRes.json();
-      if(dalle.data?.[0]?.url) {
-        setVizResultado(dalle.data[0].url);
+      const data = await res.json();
+      
+      if(data.data?.[0]?.b64_json) {
+        setVizResultado(`data:image/png;base64,${data.data[0].b64_json}`);
+      } else if(data.data?.[0]?.url) {
+        setVizResultado(data.data[0].url);
       } else {
-        setVizErro(dalle.error?.message || "Erro ao gerar imagem. Tente novamente.");
+        setVizErro(data.error?.message || "Erro ao gerar imagem. Tente novamente.");
       }
     } catch(e) {
       console.error(e);
