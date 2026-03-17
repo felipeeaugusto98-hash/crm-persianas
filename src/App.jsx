@@ -433,50 +433,43 @@ export default function CRM() {
     if(!vizFotoAmbiente||!vizFotoTecido||!vizOpenaiKey) return;
     setVizLoading(true); setVizErro(""); setVizResultado(null);
     try {
-      // Converter base64 para blob
-      const b64ToBlob = (b64, mime="image/png") => {
-        const byteStr = atob(b64.split(",")[1]);
-        const ab = new ArrayBuffer(byteStr.length);
-        const ia = new Uint8Array(ab);
-        for(let i=0;i<byteStr.length;i++) ia[i]=byteStr.charCodeAt(i);
-        return new Blob([ab],{type:mime});
-      };
-
-      const formData = new FormData();
-      formData.append("model", "gpt-image-1");
-      formData.append("image[]", b64ToBlob(vizFotoAmbiente), "ambiente.png");
-      formData.append("image[]", b64ToBlob(vizFotoTecido), "tecido.png");
-      formData.append("prompt", `You are an expert window treatment installer. Look at these two images:
-
-Image 1: A real photo of a room with a window. This is the EXACT room where the product will be installed.
-Image 2: A close-up photo of the EXACT fabric/material to be used.
-
-TASK: Edit Image 1 (the room photo) to show a "${vizModelo}"${vizBlackout?" with blackout fabric":""} professionally installed on the window. 
-
-CRITICAL REQUIREMENTS:
-- Keep the room, walls, floor, furniture, and all surroundings EXACTLY as they are in the original photo
-- ONLY add the ${vizModelo} to the window area
-- The blind/curtain fabric MUST match the exact color, texture, and pattern visible in Image 2 (the fabric photo)
-- Show proper mounting hardware: aluminum rail/tube at the top, side brackets
-- The ${vizModelo} should look naturally installed with realistic shadows and lighting matching the room
-- The result must look like a real photograph, not a render
-- Do NOT change anything else in the room - only add the window treatment`);
-      formData.append("size", "1024x1024");
-      formData.append("quality", "high");
-
-      const res = await fetch("https://api.openai.com/v1/images/edits", {
+      // Usar Responses API com image_generation tool - mantém fidelidade à foto original
+      const res = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
-        headers: { Authorization: `Bearer ${vizOpenaiKey}` },
-        body: formData
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${vizOpenaiKey}` },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          input: [
+            {
+              role: "user",
+              content: [
+                { type: "input_image", image_url: vizFotoAmbiente },
+                { type: "input_image", image_url: vizFotoTecido },
+                { type: "input_text", text: `Edit the FIRST image (the room/window photo). Keep the room EXACTLY as it is - same walls, floor, furniture, lighting, everything. ONLY add a "${vizModelo}"${vizBlackout?" (blackout fabric)":""} installed on the window.
+
+The fabric of the ${vizModelo} must match the SECOND image (the fabric close-up) - use the exact same color, texture and pattern from that fabric photo.
+
+Show proper installation with mounting rail at top. The blind/curtain should look naturally installed. Do NOT change the room, do NOT change the walls, do NOT change the window frame. ONLY add the window treatment product.` }
+              ]
+            }
+          ],
+          tools: [{ 
+            type: "image_generation",
+            quality: "high",
+            input_fidelity: "high",
+            size: "1024x1024"
+          }]
+        })
       });
       const data = await res.json();
       
-      if(data.data?.[0]?.b64_json) {
-        setVizResultado(`data:image/png;base64,${data.data[0].b64_json}`);
-      } else if(data.data?.[0]?.url) {
-        setVizResultado(data.data[0].url);
+      // Procurar o resultado da imagem gerada
+      const imgOutput = data.output?.find(o => o.type === "image_generation_call" && o.result);
+      if(imgOutput?.result) {
+        setVizResultado(`data:image/png;base64,${imgOutput.result}`);
       } else {
-        setVizErro(data.error?.message || "Erro ao gerar imagem. Tente novamente.");
+        const errMsg = data.error?.message || data.output?.find(o=>o.type==="text")?.text || "Erro ao gerar imagem. Tente novamente.";
+        setVizErro(errMsg);
       }
     } catch(e) {
       console.error(e);
