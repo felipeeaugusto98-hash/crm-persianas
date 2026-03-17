@@ -3211,9 +3211,12 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
             {!vizOpenaiKey ? (
               <div className="card" style={{padding:24,marginBottom:20,borderColor:"#f59e0b40"}}>
                 <div style={{fontSize:11,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>🔑 Configurar Chave OpenAI</div>
-                <div style={{fontSize:12,color:"#aaa",marginBottom:12}}>Para usar o simulador, cole sua chave de API da OpenAI. A chave fica salva apenas no seu navegador.</div>
-                <input className="inp" placeholder="sk-proj-..." value={vizOpenaiKey} onChange={e=>setVizOpenaiKey(e.target.value)} style={{marginBottom:12}}/>
-                <button className="btn bp" onClick={()=>salvarOpenaiKey(vizOpenaiKey)} disabled={!vizOpenaiKey.startsWith("sk-")}>💾 Salvar Chave</button>
+                <div style={{fontSize:12,color:"#aaa",marginBottom:12}}>Para usar o simulador, cole sua chave de API da OpenAI. A chave fica salva no seu navegador (só precisa colar uma vez).</div>
+                <input className="inp" placeholder="sk-proj-..." onChange={e=>{
+                  const v=e.target.value.trim();
+                  if(v.startsWith("sk-")&&v.length>20){salvarOpenaiKey(v);showToast("Chave OpenAI salva!");}
+                }} style={{marginBottom:8}}/>
+                <div style={{fontSize:11,color:"#555"}}>Cole a chave e ela será salva automaticamente</div>
               </div>
             ) : (
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,padding:"8px 14px",background:"#10b98110",borderRadius:8,border:"1px solid #10b98130"}}>
