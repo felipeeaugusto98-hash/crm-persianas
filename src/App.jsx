@@ -426,7 +426,8 @@ export default function CRM() {
   const [vizLoading, setVizLoading] = useState(false);
   const [vizErro, setVizErro] = useState("");
 
-  const OPENAI_KEY = process.env.REACT_APP_OPENAI_KEY || "";
+  const [vizOpenaiKey, setVizOpenaiKey] = useState(()=>{ try { return localStorage.getItem("crm_openai_key")||""; } catch{return "";} });
+  const salvarOpenaiKey = (k) => { setVizOpenaiKey(k); localStorage.setItem("crm_openai_key", k); };
 
   const gerarSimulacao = async () => {
     if(!vizFotoAmbiente||!vizFotoTecido) return;
@@ -435,7 +436,7 @@ export default function CRM() {
       // Step 1: GPT-4o analisa as fotos
       const analiseRes = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${vizOpenaiKey}` },
         body: JSON.stringify({
           model: "gpt-4o",
           max_tokens: 500,
@@ -455,7 +456,7 @@ export default function CRM() {
       // Step 2: DALL-E 3 gera a imagem
       const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${vizOpenaiKey}` },
         body: JSON.stringify({
           model: "dall-e-3",
           prompt: `Ultra-realistic professional interior design photograph. ${descricao}. Show the exact same room with a beautiful ${vizModelo}${vizBlackout?" (blackout)" : ""} professionally installed on the window. The blind/curtain must use the exact fabric described above. Show the mounting hardware, tube at top, and proper installation details. The image must look like a real photograph taken by an interior designer to show a client. Photorealistic quality, natural lighting, high resolution.`,
@@ -3206,7 +3207,22 @@ export default function CRM() {
             <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>🎨 Simulador de Ambientes</div>
             <div style={{fontSize:12,color:"#555",marginBottom:24}}>Gere uma simulação realista com inteligência artificial</div>
 
-            <div className="card" style={{padding:24}}>
+            {/* Config chave OpenAI */}
+            {!vizOpenaiKey ? (
+              <div className="card" style={{padding:24,marginBottom:20,borderColor:"#f59e0b40"}}>
+                <div style={{fontSize:11,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}}>🔑 Configurar Chave OpenAI</div>
+                <div style={{fontSize:12,color:"#aaa",marginBottom:12}}>Para usar o simulador, cole sua chave de API da OpenAI. A chave fica salva apenas no seu navegador.</div>
+                <input className="inp" placeholder="sk-proj-..." value={vizOpenaiKey} onChange={e=>setVizOpenaiKey(e.target.value)} style={{marginBottom:12}}/>
+                <button className="btn bp" onClick={()=>salvarOpenaiKey(vizOpenaiKey)} disabled={!vizOpenaiKey.startsWith("sk-")}>💾 Salvar Chave</button>
+              </div>
+            ) : (
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,padding:"8px 14px",background:"#10b98110",borderRadius:8,border:"1px solid #10b98130"}}>
+                <span style={{fontSize:12,color:"#10b981"}}>✅ Chave OpenAI configurada</span>
+                <button className="sb" style={{fontSize:11,color:"#ef4444",borderColor:"#ef444440"}} onClick={()=>salvarOpenaiKey("")}>Remover</button>
+              </div>
+            )}
+
+            <div className="card" style={{padding:24,opacity:vizOpenaiKey?1:0.4,pointerEvents:vizOpenaiKey?"auto":"none"}}>
               {/* Modelo */}
               <div style={{marginBottom:20}}>
                 <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"1px"}}>Modelo da Persiana ou Cortina</label>
