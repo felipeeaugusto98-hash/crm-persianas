@@ -430,22 +430,35 @@ export default function CRM() {
   const salvarOpenaiKey = (k) => { setVizOpenaiKey(k); localStorage.setItem("crm_openai_key", k); };
 
   const gerarSimulacao = async () => {
-    if(!vizFotoAmbiente||!vizFotoTecido) return;
+    if(!vizFotoAmbiente||!vizFotoTecido||!vizOpenaiKey) return;
     setVizLoading(true); setVizErro(""); setVizResultado(null);
     try {
-      // Step 1: GPT-4o analisa as fotos
+      // Step 1: GPT-4o analisa as fotos com máximo detalhe
       const analiseRes = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${vizOpenaiKey}` },
         body: JSON.stringify({
           model: "gpt-4o",
-          max_tokens: 500,
+          max_tokens: 800,
           messages: [{
             role: "user",
             content: [
-              { type: "text", text: `Analyze these two images. Image 1 is a room/window where a ${vizModelo}${vizBlackout?" with blackout fabric":""} will be installed. Image 2 is a close-up of the fabric texture. Describe in detail: 1) The room environment, wall colors, window shape and size, lighting. 2) The fabric color, texture, pattern. Be specific and concise. Answer in English.` },
-              { type: "image_url", image_url: { url: vizFotoAmbiente, detail: "low" } },
-              { type: "image_url", image_url: { url: vizFotoTecido, detail: "low" } }
+              { type: "text", text: `You are an expert interior designer. I will show you 2 images:
+
+IMAGE 1: A photo of a real room/window where a "${vizModelo}"${vizBlackout?" with blackout fabric":""} will be installed.
+IMAGE 2: A close-up photo of the EXACT fabric/material that will be used.
+
+Analyze BOTH images with extreme precision and provide:
+
+1. ROOM DESCRIPTION: Exact wall color (hex if possible), floor type, window frame color and material, window dimensions relative to room, lighting conditions (natural/artificial, warm/cool), any furniture or objects visible, ceiling type.
+
+2. WINDOW DETAILS: Shape (rectangular, arched, etc), frame material and color, how many panes, if there are handles/locks visible, the exact position in the wall.
+
+3. FABRIC/MATERIAL DESCRIPTION: Exact colors (list all colors visible), texture type (smooth, woven, ribbed, striped), pattern (solid, horizontal stripes, geometric), opacity level (sheer, translucent, opaque), material appearance (cotton-like, polyester-like, natural fiber, synthetic).
+
+Be extremely specific about colors - use descriptive terms like "warm beige with golden undertones" or "light cream with horizontal woven stripes alternating between ivory and sandy tan". This description will be used to generate a photorealistic image, so accuracy is critical.` },
+              { type: "image_url", image_url: { url: vizFotoAmbiente, detail: "high" } },
+              { type: "image_url", image_url: { url: vizFotoTecido, detail: "high" } }
             ]
           }]
         })
@@ -453,16 +466,29 @@ export default function CRM() {
       const analise = await analiseRes.json();
       const descricao = analise.choices?.[0]?.message?.content || "";
 
-      // Step 2: DALL-E 3 gera a imagem
+      if(!descricao) { setVizErro("Erro na análise das fotos. Tente novamente."); setVizLoading(false); return; }
+
+      // Step 2: DALL-E 3 gera a imagem com prompt ultra-específico
       const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${vizOpenaiKey}` },
         body: JSON.stringify({
           model: "dall-e-3",
-          prompt: `Ultra-realistic professional interior design photograph. ${descricao}. Show the exact same room with a beautiful ${vizModelo}${vizBlackout?" (blackout)" : ""} professionally installed on the window. The blind/curtain must use the exact fabric described above. Show the mounting hardware, tube at top, and proper installation details. The image must look like a real photograph taken by an interior designer to show a client. Photorealistic quality, natural lighting, high resolution.`,
+          prompt: `Create an ultra-realistic professional photograph of a real room interior. This must look like an actual photo, NOT a render or 3D visualization.
+
+CRITICAL ROOM DETAILS (reproduce EXACTLY):
+${descricao}
+
+PRODUCT TO SHOW: A "${vizModelo}"${vizBlackout?" with blackout fabric":""} professionally installed on the window described above.
+
+CRITICAL FABRIC REQUIREMENTS: The ${vizModelo} MUST use the EXACT fabric described above - match the precise colors, texture, pattern, and opacity. This is the most important aspect.
+
+INSTALLATION DETAILS: Show proper mounting hardware - aluminum tube/rail at the top, side brackets matching the window frame. The ${vizModelo} should cover the window appropriately with realistic draping/folding consistent with this product type.
+
+PHOTO REQUIREMENTS: Shot from inside the room, natural perspective as if standing 2-3 meters from the window. Natural lighting consistent with the room description. Sharp focus. No watermarks. Must look indistinguishable from a real photograph taken by a professional interior photographer.`,
           n: 1,
           size: "1024x1024",
-          quality: "standard"
+          quality: "hd"
         })
       });
       const dalle = await dalleRes.json();
