@@ -426,8 +426,39 @@ export default function CRM() {
   const [vizLoading, setVizLoading] = useState(false);
   const [vizErro, setVizErro] = useState("");
 
-  const [vizOpenaiKey, setVizOpenaiKey] = useState(()=>{ try { return localStorage.getItem("crm_openai_key")||""; } catch{return "";} });
-  const salvarOpenaiKey = (k) => { setVizOpenaiKey(k); localStorage.setItem("crm_openai_key", k); };
+  const [vizOpenaiKey, setVizOpenaiKey] = useState("");
+  const salvarOpenaiKey = async (k) => {
+    setVizOpenaiKey(k);
+    try {
+      // Tenta update primeiro, se não existe faz insert
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/configs?chave=eq.openai_key`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+      });
+      const existing = await res.json();
+      if(existing.length > 0) {
+        await fetch(`${SUPABASE_URL}/rest/v1/configs?chave=eq.openai_key`, {
+          method: "PATCH",
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ valor: k })
+        });
+      } else {
+        await fetch(`${SUPABASE_URL}/rest/v1/configs`, {
+          method: "POST",
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ chave: "openai_key", valor: k })
+        });
+      }
+    } catch(e) { console.error(e); }
+  };
+  const carregarOpenaiKey = async () => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/configs?chave=eq.openai_key`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+      });
+      const data = await res.json();
+      if(data[0]?.valor) setVizOpenaiKey(data[0].valor);
+    } catch(e) { console.error(e); }
+  };
 
   const gerarSimulacao = async () => {
     if(!vizFotoAmbiente||!vizFotoTecido||!vizOpenaiKey) return;
@@ -507,6 +538,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
         db.get(), dbClientes.get(), dbOcorrencias.get(), dbTickets.get(), dbNotas.get(), dbPedidos.get()
       ]);
       setVisitas(v); setClientes(c); setOcorrencias(oc); setTickets(tk); setNotas(nt); setPedidosFabrica(pf);
+      carregarOpenaiKey();
       const h = new Date().toLocaleDateString("pt-BR");
       const temHoje = v.filter(x=>x.dataVisita===h && x.status==="agendado").length>0;
       if(temHoje) setShowLembrete(true);
