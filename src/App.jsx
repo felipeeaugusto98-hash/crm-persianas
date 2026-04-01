@@ -425,6 +425,13 @@ export default function CRM() {
   const [searchTicket, setSearchTicket] = useState("");
   const [searchPedido, setSearchPedido] = useState("");
 
+  // Converter PDF
+  const [convFile, setConvFile] = useState(null);
+  const [convLoading, setConvLoading] = useState(false);
+  const [convResult, setConvResult] = useState(null);
+  const [convErro, setConvErro] = useState("");
+  const [convCliente, setConvCliente] = useState("");
+
   // Visualizador IA
   const [vizModelo, setVizModelo] = useState("Persiana Rolo");
   const [vizBlackout, setVizBlackout] = useState(false);
@@ -957,6 +964,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>navTo("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>navTo("importar")}>✉ Importar E-mail</div>
         <div className={`nav ${view==="visualizador"?"on":""}`} onClick={()=>navTo("visualizador")}>🎨 Visualizador</div>
+        <div className={`nav ${view==="converter"?"on":""}`} onClick={()=>navTo("converter")}>📄 Converter PDF</div>
         <div style={{marginTop:12}}/>
         <button className="btn bp" style={{width:"100%",padding:12}} onClick={()=>navTo("novo")}>+ Nova Visita</button>
         <div style={{marginTop:14,padding:"12px 8px",borderTop:"1px solid #1a1a24"}}>
@@ -990,6 +998,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
         <div className={`nav ${view==="gerente"?"on":""}`} onClick={()=>setView("gerente")}>👔 Painel Gerente</div>
         <div className={`nav ${view==="importar"?"on":""}`} onClick={()=>{setImportStep("colar");setEmailTexto("");setView("importar")}}>✉ Importar E-mail</div>
         <div className={`nav ${view==="visualizador"?"on":""}`} onClick={()=>setView("visualizador")}>🎨 Visualizador</div>
+        <div className={`nav ${view==="converter"?"on":""}`} onClick={()=>setView("converter")}>📄 Converter PDF</div>
         <div style={{flex:1}}/>
         <button className="btn bp" style={{width:"100%",padding:11}} onClick={()=>{if(!form.cliente)setForm({...empty});setView("novo")}}>+ Nova Visita{form.cliente&&!form.id?" (rascunho)":""}</button>
         <div style={{marginTop:14,padding:"12px 8px",borderTop:"1px solid #1a1a24"}}>
@@ -3370,6 +3379,223 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 <div style={{fontSize:11,color:"#555",marginTop:10}}>💡 Dica: baixe a imagem e envie pelo WhatsApp para o cliente</div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* CONVERTER PDF */}
+        {view==="converter" && (
+          <div style={{maxWidth:700}}>
+            <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>📄 Converter Orçamento → Pedido de Compra</div>
+            <div style={{fontSize:12,color:"#555",marginBottom:24}}>Converte automaticamente o PDF do orçamento em pedido de compra</div>
+
+            <div className="card" style={{padding:24}}>
+              {/* Upload */}
+              <div style={{marginBottom:20}}>
+                <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"1px"}}>Upload do PDF do Orçamento</label>
+                <label style={{display:"flex",alignItems:"center",gap:12,padding:"20px 18px",background:"#0d0d15",borderRadius:10,border:`1px solid ${convFile?"#10b98140":"#2a2a3a"}`,cursor:"pointer",transition:"all .15s"}}>
+                  <div style={{fontSize:28}}>{convFile?"✅":"📄"}</div>
+                  <div>
+                    <div style={{fontSize:13,color:convFile?"#10b981":"#aaa"}}>{convFile?convFile.name:"Selecionar PDF do orçamento"}</div>
+                    <div style={{fontSize:11,color:"#555",marginTop:2}}>{convFile?"Toque para trocar":"Arquivo gerado pelo sistema Persianas em Casa"}</div>
+                  </div>
+                  <input type="file" accept=".pdf" onChange={e=>{
+                    const f=e.target.files?.[0]; if(!f) return;
+                    setConvFile(f); setConvResult(null); setConvErro(""); setConvCliente("");
+                  }} style={{display:"none"}}/>
+                </label>
+              </div>
+
+              {convErro && (
+                <div style={{padding:"12px 16px",background:"#ef444415",border:"1px solid #ef444430",borderRadius:8,color:"#ef4444",fontSize:13,marginBottom:16}}>
+                  ⚠️ {convErro}
+                </div>
+              )}
+
+              {/* Botão Converter */}
+              <button className="btn bp" style={{width:"100%",padding:16,fontSize:16,fontFamily:"Georgia,serif",letterSpacing:1}} disabled={!convFile||convLoading} onClick={async()=>{
+                if(!convFile) return;
+                setConvLoading(true); setConvErro(""); setConvResult(null);
+                try {
+                  // Carregar pdf-lib do CDN
+                  if(!window.PDFLib){
+                    await new Promise((res,rej)=>{
+                      const s=document.createElement("script");
+                      s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
+                      s.onload=res; s.onerror=rej;
+                      document.head.appendChild(s);
+                    });
+                  }
+                  const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+
+                  // Ler arquivo
+                  let arrayBuf = await convFile.arrayBuffer();
+                  let uint8 = new Uint8Array(arrayBuf);
+
+                  // Detectar e remover cabeçalho HTML antes do %PDF
+                  const pdfStr = new TextDecoder("latin1").decode(uint8);
+                  const pdfIdx = pdfStr.indexOf("%PDF");
+                  if(pdfIdx > 0) {
+                    uint8 = uint8.slice(pdfIdx);
+                  }
+
+                  const pdfDoc = await PDFDocument.load(uint8, {ignoreEncryption:true});
+                  const pages = pdfDoc.getPages();
+                  const page = pages[0];
+                  const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+                  const fontNormal = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+                  // Cores do layout original
+                  const cinzaBarra = rgb(0.753, 0.753, 0.753);
+                  const dourado = rgb(0.722, 0.525, 0.043);
+                  const cinzaClaro = rgb(0.937, 0.937, 0.937);
+                  const branco = rgb(1, 1, 1);
+
+                  // 1. TÍTULO: "ORÇAMENTO DE VENDA Nº:" → "PEDIDO DE COMPRA Nº:"
+                  page.drawRectangle({x:140, y:770, width:280, height:20, color:cinzaBarra});
+                  page.drawText("PEDIDO DE COMPRA Nº:", {x:145, y:774, size:11, font, color:rgb(0,0,0)});
+
+                  // 2. PRAZO: "PRAZO DE ENTREGA: 20" → "25 DIAS UTEIS"
+                  page.drawRectangle({x:30, y:700, width:250, height:16, color:branco});
+                  page.drawText("PRAZO DE ENTREGA: 25 DIAS UTEIS", {x:32, y:703, size:9, font:fontNormal, color:rgb(0,0,0)});
+
+                  // 3. VALIDADE: "VALIDADE: 0 DIAS" → "GARANTIA: 3 ANOS"
+                  page.drawRectangle({x:310, y:700, width:250, height:16, color:branco});
+                  page.drawText("GARANTIA: 3 ANOS", {x:312, y:703, size:9, font:fontNormal, color:rgb(0,0,0)});
+
+                  // 4. SEÇÃO DE ITENS: "ITENS DO ORÇAMENTO" → "ITENS DO PEDIDO"
+                  page.drawRectangle({x:30, y:640, width:535, height:18, color:cinzaClaro});
+                  page.drawText("ITENS DO PEDIDO", {x:235, y:644, size:10, font, color:dourado});
+
+                  // Extrair nome do cliente do PDF
+                  const textContent = pdfStr;
+                  const clienteMatch = textContent.match(/CLIENTE:\s*([^\n\r]+)/i) || textContent.match(/Cliente:\s*([^\n\r]+)/i);
+                  const nomeCliente = clienteMatch ? clienteMatch[1].trim().split("  ")[0].trim() : "Cliente";
+                  setConvCliente(nomeCliente);
+
+                  // 5. NOVA PÁGINA com observações
+                  const newPage = pdfDoc.addPage([595.28, 841.89]);
+
+                  // Cabeçalho da nova página
+                  newPage.drawRectangle({x:0, y:790, width:595.28, height:52, color:cinzaBarra});
+                  newPage.drawText("OBSERVAÇÕES DO PEDIDO DE COMPRA", {x:150, y:810, size:14, font, color:rgb(0,0,0)});
+
+                  const obsTexto = [
+                    "INFORMAÇÕES IMPORTANTES",
+                    "",
+                    "GARANTIA:",
+                    "• Todos os produtos possuem garantia de 3 (três) anos contra defeitos de fabricação.",
+                    "• A garantia não cobre mau uso, desgaste natural ou danos causados por terceiros.",
+                    "",
+                    "PRAZOS DE ENTREGA:",
+                    "• Persianas: 15 a 20 dias úteis após confirmação do pedido.",
+                    "• Cortinas: 20 a 25 dias úteis após confirmação do pedido.",
+                    "• Produtos motorizados podem acrescentar até 5 dias úteis ao prazo.",
+                    "• Prazos sujeitos a alteração em períodos de alta demanda.",
+                    "",
+                    "INSTALAÇÃO:",
+                    "• A instalação será agendada após a chegada do produto.",
+                    "• O ambiente deve estar livre e acessível no dia da instalação.",
+                    "• Qualquer alteração estrutural (alvenaria, gesso, elétrica) é de",
+                    "  responsabilidade do cliente.",
+                    "• Instalação inclusa conforme orçamento aprovado.",
+                    "",
+                    "PAGAMENTO:",
+                    "• Condições conforme negociado no ato da venda.",
+                    "• O pedido só entra em produção após confirmação do pagamento",
+                    "  da entrada (quando aplicável).",
+                    "",
+                    "CANCELAMENTO:",
+                    "• Pedidos podem ser cancelados em até 24 horas após a confirmação",
+                    "  sem custo adicional.",
+                    "• Após início da produção, será cobrada taxa de 30% do valor total",
+                    "  a título de custos de produção.",
+                    "• Produtos personalizados (medidas especiais) não são passíveis de",
+                    "  devolução após a produção.",
+                    "",
+                    "OBSERVAÇÕES GERAIS:",
+                    "• Pequenas variações de cor podem ocorrer entre a amostra e o",
+                    "  produto final devido ao processo de fabricação.",
+                    "• As medidas finais são de responsabilidade do consultor técnico",
+                    "  que realizou a visita.",
+                    "• Este pedido de compra tem validade de 30 dias.",
+                    "",
+                    "",
+                    "Persianas em Casa — Qualidade e conforto para seu lar."
+                  ];
+
+                  let yPos = 760;
+                  obsTexto.forEach(linha => {
+                    const isTitulo = linha === linha.toUpperCase() && linha.length > 0 && !linha.startsWith("•") && !linha.startsWith(" ");
+                    newPage.drawText(linha, {
+                      x: 50,
+                      y: yPos,
+                      size: isTitulo ? 11 : 9,
+                      font: isTitulo ? font : fontNormal,
+                      color: isTitulo ? dourado : rgb(0.2, 0.2, 0.2)
+                    });
+                    yPos -= isTitulo ? 18 : 14;
+                  });
+
+                  // Salvar e baixar
+                  const pdfBytes = await pdfDoc.save();
+                  const blob = new Blob([pdfBytes], {type:"application/pdf"});
+                  const url = URL.createObjectURL(blob);
+                  setConvResult({url, nome:`Pedido de compra ${nomeCliente}.pdf`});
+                  showToast("PDF convertido com sucesso!");
+
+                } catch(e) {
+                  console.error(e);
+                  setConvErro("Erro ao processar o PDF. Verifique se é um orçamento válido do sistema.");
+                }
+                setConvLoading(false);
+              }}>
+                {convLoading ? "⏳ Convertendo..." : "🔄 Converter para Pedido de Compra"}
+              </button>
+            </div>
+
+            {/* Resultado */}
+            {convResult && (
+              <div style={{marginTop:20}}>
+                <div className="card" style={{padding:20}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+                    <div style={{fontSize:36}}>✅</div>
+                    <div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:16,color:"#10b981"}}>Pedido de Compra Gerado!</div>
+                      <div style={{fontSize:12,color:"#555",marginTop:2}}>Cliente: {convCliente}</div>
+                    </div>
+                  </div>
+
+                  <div style={{fontSize:11,color:"#777",marginBottom:12}}>
+                    Alterações aplicadas: Título → Pedido de Compra · Prazo → 25 dias úteis · Validade → Garantia 3 anos · Itens do Pedido · Página de observações adicionada
+                  </div>
+
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    <a href={convResult.url} download={convResult.nome} style={{textDecoration:"none"}}>
+                      <button className="btn bp">📥 Baixar PDF</button>
+                    </a>
+                    <button className="btn bg" onClick={()=>{setConvFile(null);setConvResult(null);setConvErro("");setConvCliente("")}}>📄 Novo Arquivo</button>
+                  </div>
+                </div>
+
+                {/* Preview */}
+                <div style={{marginTop:14,borderRadius:12,overflow:"hidden",border:"1px solid #2a2a3a"}}>
+                  <iframe src={convResult.url} style={{width:"100%",height:500,border:"none"}} title="Preview PDF"/>
+                </div>
+              </div>
+            )}
+
+            {/* Info */}
+            <div style={{marginTop:20,padding:16,background:"#12121a",borderRadius:10,border:"1px solid #1e1e28"}}>
+              <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>ℹ️ Como funciona</div>
+              <div style={{fontSize:12,color:"#777",lineHeight:1.8}}>
+                1. Faça upload do PDF do orçamento gerado pelo sistema<br/>
+                2. O sistema converte automaticamente em pedido de compra<br/>
+                3. Título, prazo, validade e seção de itens são alterados<br/>
+                4. Uma página de observações com garantia e termos é adicionada<br/>
+                5. Baixe o PDF convertido e envie ao cliente<br/>
+                <span style={{fontSize:11,color:"#555",marginTop:8,display:"block"}}>100% no navegador · Nenhum dado é enviado para servidores externos</span>
+              </div>
+            </div>
           </div>
         )}
 
