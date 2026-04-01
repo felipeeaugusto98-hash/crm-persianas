@@ -3505,28 +3505,67 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   const lastPage=pages[pages.length-1];
                   const{width:lW,height:lH}=lastPage.getSize();
                   const obsPage=pdfDoc.addPage([lW,lH]);
-                  const obsStartY=lH-80;
-                  const obsTitle="Observações:";
-                  const obsTW=fontBold.widthOfTextAtSize(obsTitle,14);
-                  obsPage.drawText(obsTitle,{x:(lW-obsTW)/2,y:obsStartY,size:14,font:fontBold,color:rgb(0,0,0)});
-                  const obsLines=[
-                    {bold:true,text:"Informações adicionais:"},
-                    {bold:false,text:"Nota fiscal será entregue junto com o produto no ato da instalação"},
-                    {bold:false,text:"Garantia de 3 anos em todos os produtos"},
-                    {bold:false,text:"Prazo de entrega de 15 a 20 dias úteis para persianas"},
-                    {bold:false,text:"Prazo de entrega de 20 a 25 dias úteis para cortinas"},
-                    {bold:false,text:"Orientações de instalação: Instalação será agendada dentro do horário comercial"},
-                    {bold:false,text:"(período: manhã ou tarde)"},
-                    {bold:false,text:"O cancelamento ou reagendamento pode ser feito até 24 horas antes."},
-                    {bold:false,text:"Não cobramos custo adicional para mão de obra e instalação do produto em SP-SP"},
-                    {bold:false,text:"Estão excluídos os serviços de alvenaria, instalações de rede elétrica, papel de parede,"},
-                    {bold:false,text:"cimento e frete de peças para grandes vão"},
-                    {bold:false,text:"No caso do instalador não conseguir efetuar a instalação por algum motivo técnico e"},
-                    {bold:false,text:"precise de reagendamento, será cobrada uma taxa de R$ 120,00."},
-                    {bold:false,text:"O instalador pode ficar esperando até 15 minutos para entrar no cliente."},
+
+                  // Cabeçalho
+                  obsPage.drawRectangle({x:0, y:lH-52, width:lW, height:52, color:rgb(0.753,0.753,0.753)});
+                  obsPage.drawText("OBSERVAÇÕES DO PEDIDO DE COMPRA", {x:150, y:lH-35, size:14, font:fontBold, color:rgb(0,0,0)});
+
+                  const obsTexto = [
+                    "INFORMAÇÕES IMPORTANTES",
+                    "",
+                    "GARANTIA:",
+                    "• Todos os produtos possuem garantia de 3 (três) anos contra defeitos de fabricação.",
+                    "• A garantia não cobre mau uso, desgaste natural ou danos causados por terceiros.",
+                    "",
+                    "PRAZOS DE ENTREGA:",
+                    "• Persianas: 15 a 20 dias úteis após confirmação do pedido.",
+                    "• Cortinas: 20 a 25 dias úteis após confirmação do pedido.",
+                    "• Produtos motorizados podem acrescentar até 5 dias úteis ao prazo.",
+                    "• Prazos sujeitos a alteração em períodos de alta demanda.",
+                    "",
+                    "INSTALAÇÃO:",
+                    "• A instalação será agendada após a chegada do produto.",
+                    "• O ambiente deve estar livre e acessível no dia da instalação.",
+                    "• Qualquer alteração estrutural (alvenaria, gesso, elétrica) é de",
+                    "  responsabilidade do cliente.",
+                    "• Instalação inclusa conforme orçamento aprovado.",
+                    "",
+                    "PAGAMENTO:",
+                    "• Condições conforme negociado no ato da venda.",
+                    "• O pedido só entra em produção após confirmação do pagamento",
+                    "  da entrada (quando aplicável).",
+                    "",
+                    "CANCELAMENTO:",
+                    "• Pedidos podem ser cancelados em até 24 horas após a confirmação",
+                    "  sem custo adicional.",
+                    "• Após início da produção, será cobrada taxa de 30% do valor total",
+                    "  a título de custos de produção.",
+                    "• Produtos personalizados (medidas especiais) não são passíveis de",
+                    "  devolução após a produção.",
+                    "",
+                    "OBSERVAÇÕES GERAIS:",
+                    "• Pequenas variações de cor podem ocorrer entre a amostra e o",
+                    "  produto final devido ao processo de fabricação.",
+                    "• As medidas finais são de responsabilidade do consultor técnico",
+                    "  que realizou a visita.",
+                    "• Este pedido de compra tem validade de 30 dias.",
+                    "",
+                    "",
+                    "Persianas em Casa — Qualidade e conforto para seu lar."
                   ];
-                  let oY=obsStartY-30;
-                  obsLines.forEach(l=>{obsPage.drawText(l.text,{x:45,y:oY,size:9,font:l.bold?fontBold:fontRegular,color:rgb(0,0,0)});oY-=14;});
+
+                  let oY = lH - 90;
+                  obsTexto.forEach(linha => {
+                    const isTitulo = linha === linha.toUpperCase() && linha.length > 0 && !linha.startsWith("•") && !linha.startsWith(" ");
+                    obsPage.drawText(linha, {
+                      x: 50,
+                      y: oY,
+                      size: isTitulo ? 11 : 9,
+                      font: isTitulo ? fontBold : fontRegular,
+                      color: isTitulo ? rgb(0.722,0.525,0.043) : rgb(0.2,0.2,0.2)
+                    });
+                    oY -= isTitulo ? 18 : 14;
+                  });
 
                   const pdfBytes=await pdfDoc.save();
                   const safeName=nomeCliente.replace(/[<>:"/\\|?*]/g,"").trim();
