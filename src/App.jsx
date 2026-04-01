@@ -431,6 +431,21 @@ export default function CRM() {
   const [convResult, setConvResult] = useState(null);
   const [convErro, setConvErro] = useState("");
   const [convCliente, setConvCliente] = useState("");
+  const [convTelefone, setConvTelefone] = useState("");
+  const [convPrazo, setConvPrazo] = useState("auto");
+  const [convHistorico, setConvHistorico] = useState([]);
+  const [convObs, setConvObs] = useState(`Nota fiscal será entregue junto com o produto no ato da instalação
+Garantia de 3 anos em todos os produtos
+Prazo de entrega de 15 a 20 dias úteis para persianas
+Prazo de entrega de 20 a 25 dias úteis para cortinas
+Orientações de instalação: Instalação será agendada dentro do horário comercial (período: manhã ou tarde)
+O cancelamento ou reagendamento pode ser feito até 24 horas antes.
+Não cobramos custo adicional para mão de obra e instalação do produto em SP-SP
+Estão excluídos os serviços de alvenaria, instalações de rede elétrica, papel de parede, cimento e frete de peças para grandes vão
+No caso do instalador não conseguir efetuar a instalação por algum motivo técnico e precise de reagendamento, será cobrada uma taxa de R$ 120,00.
+O instalador pode ficar esperando até 15 minutos para entrar no cliente.`);
+  const carregarHistoricoConv = async () => { try { const res = await fetch(`${SUPABASE_URL}/rest/v1/historico_conversoes?order=created_at.desc&limit=20`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }); setConvHistorico(await res.json()); } catch(e){} };
+  const salvarHistoricoConv = async (cliente, numero, usuario) => { try { await fetch(`${SUPABASE_URL}/rest/v1/historico_conversoes`, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ cliente, numero_pedido: numero, data_conversao: hoje, usuario }) }); carregarHistoricoConv(); } catch(e){} };
 
   // Visualizador IA
   const [vizModelo, setVizModelo] = useState("Persiana Rolo");
@@ -554,6 +569,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       ]);
       setVisitas(v); setClientes(c); setOcorrencias(oc); setTickets(tk); setNotas(nt); setPedidosFabrica(pf);
       carregarOpenaiKey();
+      carregarHistoricoConv();
       const h = new Date().toLocaleDateString("pt-BR");
       const temHoje = v.filter(x=>x.dataVisita===h && x.status==="agendado").length>0;
       if(temHoje) setShowLembrete(true);
@@ -3382,6 +3398,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
           </div>
         )}
 
+
         {/* CONVERTER PDF */}
         {view==="converter" && (
           <div style={{maxWidth:700}}>
@@ -3400,9 +3417,34 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   </div>
                   <input type="file" accept=".pdf" onChange={e=>{
                     const f=e.target.files?.[0]; if(!f) return;
-                    setConvFile(f); setConvResult(null); setConvErro(""); setConvCliente("");
+                    setConvFile(f); setConvResult(null); setConvErro(""); setConvCliente(""); setConvTelefone("");
                   }} style={{display:"none"}}/>
                 </label>
+              </div>
+
+              {/* Prazo de entrega */}
+              <div style={{marginBottom:20}}>
+                <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"1px"}}>Prazo de Entrega</label>
+                <div style={{display:"flex",gap:8}}>
+                  {[
+                    {v:"auto",l:"🔄 Automático",desc:"Detecta do PDF"},
+                    {v:"persiana",l:"🪟 Persiana",desc:"20 dias úteis"},
+                    {v:"cortina",l:"🪢 Cortina",desc:"25 dias úteis"},
+                    {v:"misto",l:"🪟🪢 Misto",desc:"25 dias (maior prazo)"},
+                  ].map(op=>(
+                    <button key={op.v} onClick={()=>setConvPrazo(op.v)} style={{flex:1,padding:"10px 8px",borderRadius:8,border:`1px solid ${convPrazo===op.v?"#c9a84c":"#2a2a3a"}`,background:convPrazo===op.v?"#c9a84c20":"transparent",color:convPrazo===op.v?"#c9a84c":"#777",fontSize:12,cursor:"pointer",transition:"all .15s",textAlign:"center"}}>
+                      <div style={{fontWeight:600}}>{op.l}</div>
+                      <div style={{fontSize:10,marginTop:2,opacity:0.7}}>{op.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Observações editáveis */}
+              <div style={{marginBottom:20}}>
+                <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:"1px"}}>Observações (editável)</label>
+                <textarea className="inp" value={convObs} onChange={e=>setConvObs(e.target.value)} style={{minHeight:120,fontSize:12,lineHeight:1.6}}/>
+                <div style={{fontSize:10,color:"#555",marginTop:4}}>Esse texto será adicionado na última página do pedido de compra</div>
               </div>
 
               {convErro && (
@@ -3425,18 +3467,14 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                     });
                   }
                   const { PDFDocument, PDFName, rgb, StandardFonts } = window.PDFLib;
-
                   let arrayBuf = await convFile.arrayBuffer();
                   let uint8 = new Uint8Array(arrayBuf);
-
-                  // Detectar e remover cabeçalho HTML antes do %PDF
                   for(let i=0;i<Math.min(uint8.length,1000);i++){
                     if(uint8[i]===0x25&&uint8[i+1]===0x50&&uint8[i+2]===0x44&&uint8[i+3]===0x46){
                       if(i>0){ uint8=uint8.slice(i); arrayBuf=uint8.buffer.slice(uint8.byteOffset,uint8.byteOffset+uint8.byteLength); }
                       break;
                     }
                   }
-
                   const pdfDoc = await PDFDocument.load(arrayBuf, {ignoreEncryption:true});
                   const pages = pdfDoc.getPages();
                   const page = pages[0];
@@ -3444,128 +3482,76 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
                   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-                  // === 1. TÍTULO: "ORÇAMENTO DE VENDA Nº:" → "PEDIDO DE COMPRA Nº:" ===
+                  // Extrair texto do PDF
+                  let pdfFullText=""; let nomeCliente="Cliente"; let telefoneCliente=""; let numeroPedido="";
+                  try {
+                    const ref=page.node.get(PDFName.of("Contents"));
+                    if(ref){
+                      const obj=pdfDoc.context.lookup(ref); let stream="";
+                      if(obj){
+                        try{ stream=new TextDecoder("latin1").decode(obj.decodeContents?obj.decodeContents():obj.getContents()); }catch(e){}
+                        if(!stream&&obj.constructor.name==="PDFArray"){
+                          for(let i=0;i<obj.size();i++){const sr=obj.get(i);const st=pdfDoc.context.lookup(sr);if(st){try{stream+=new TextDecoder("latin1").decode(st.decodeContents?st.decodeContents():st.getContents());}catch(e){}}}
+                        }
+                      }
+                      if(stream){
+                        const parts=[]; let m; const tjR=/\(([^)]*)\)\s*Tj/g;
+                        while((m=tjR.exec(stream))!==null) parts.push(m[1]);
+                        const tjAR=/\[([^\]]*)\]\s*TJ/g;
+                        while((m=tjAR.exec(stream))!==null){const inner=m[1];const sR=/\(([^)]*)\)/g;let s;let c="";while((s=sR.exec(inner))!==null)c+=s[1];if(c)parts.push(c);}
+                        pdfFullText=parts.join(" ");
+                        const cm=pdfFullText.match(/CLIENTE:\s*(.+?)(?:\s*DATA:|\s*$)/i);
+                        if(cm){let n=cm[1].trim();n=n.replace(/\b\w+/g,w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase());nomeCliente=n;}
+                        const tm=pdfFullText.match(/CELULAR:\s*(\d+)/i); if(tm) telefoneCliente=tm[1];
+                        const nm=pdfFullText.match(/N[º°]:\s*(\d+)/i); if(nm) numeroPedido=nm[1];
+                      }
+                    }
+                  }catch(e){}
+                  setConvCliente(nomeCliente); setConvTelefone(telefoneCliente);
+
+                  // Prazo automático
+                  let prazoTexto="25 DIAS UTEIS";
+                  if(convPrazo==="persiana") prazoTexto="20 DIAS UTEIS";
+                  else if(convPrazo==="cortina"||convPrazo==="misto") prazoTexto="25 DIAS UTEIS";
+                  else { // auto: detectar do conteúdo
+                    const txt=pdfFullText.toLowerCase();
+                    const temCortina=txt.includes("cort");
+                    const temPersiana=txt.includes("rolo")||txt.includes("double")||txt.includes("triple")||txt.includes("veneziana")||txt.includes("plissada")||txt.includes("colmeia")||txt.includes("zebra")||txt.includes("madeira")||txt.includes("alumin");
+                    // Se tem cortina (independente de ter persiana também), usa 25 dias
+                    prazoTexto=temCortina?"25 DIAS UTEIS":"20 DIAS UTEIS";
+                  }
+
+                  // === 0. CABEÇALHO ===
+                  page.drawRectangle({x:350, y:height-80, width:220, height:30, color:rgb(1,1,1), borderWidth:0});
+                  page.drawText("A empresa PERSIANAS EM CASA LTDA., com sede em Campinas, SP,", {x:355, y:height-65, size:6.5, font:fontRegular, color:rgb(0,0,0)});
+                  page.drawText("está cadastrada sob o CNPJ 46.987.484/0001-05", {x:390, y:height-76, size:6.5, font:fontRegular, color:rgb(0,0,0)});
+                  // === 1. TÍTULO ===
                   page.drawRectangle({x:28.62, y:height-142.36, width:343, height:28.70, color:rgb(0.753,0.753,0.753), borderWidth:0});
-                  const titleText="PEDIDO DE COMPRA Nº:";
-                  const titleWidth=fontBold.widthOfTextAtSize(titleText,14.29);
+                  const titleText="PEDIDO DE COMPRA Nº:"; const titleWidth=fontBold.widthOfTextAtSize(titleText,14.29);
                   page.drawText(titleText, {x:372.26-titleWidth-4, y:height-136.33, size:14.29, font:fontBold, color:rgb(0,0,0)});
-
-                  // === 2. PRAZO: "20" → "25 DIAS UTEIS" ===
+                  // === 2. PRAZO ===
                   page.drawRectangle({x:454.83, y:height-204.70, width:111.83, height:20.78, color:rgb(1,1,1), borderWidth:0});
-                  page.drawText("25 DIAS UTEIS", {x:457.85, y:height-198.79, size:7.7, font:fontRegular, color:rgb(0,0,0)});
-
-                  // === 3. "VALIDADE: 0 DIAS" → "GARANTIA: 3 ANOS" ===
+                  page.drawText(prazoTexto, {x:457.85, y:height-198.79, size:7.7, font:fontRegular, color:rgb(0,0,0)});
+                  // === 3. GARANTIA ===
                   page.drawRectangle({x:28.62, y:height-246.26, width:30.88, height:20.78, color:rgb(0.937,0.937,0.937), borderWidth:0});
                   page.drawRectangle({x:59.51, y:height-246.26, width:72.93, height:20.78, color:rgb(1,1,1), borderWidth:0});
                   page.drawRectangle({x:132.44, y:height-246.26, width:80, height:20.78, color:rgb(0.937,0.937,0.937), borderWidth:0});
                   page.drawText("GARANTIA:", {x:87.37, y:height-240.35, size:7.7, font:fontBold, color:rgb(0,0,0)});
                   const gLabelW=fontBold.widthOfTextAtSize("GARANTIA: ",7.7);
                   page.drawText("3 ANOS", {x:87.37+gLabelW, y:height-240.35, size:7.7, font:fontRegular, color:rgb(0,0,0)});
-
-                  // === 4. "ITENS DO ORÇAMENTO" → "ITENS DO PEDIDO" ===
+                  // === 4. ITENS DO PEDIDO ===
                   page.drawRectangle({x:28.63, y:height-294.49, width:538.02, height:21.13, color:rgb(0.722,0.525,0.043), borderWidth:0});
-                  const itensText="ITENS DO PEDIDO";
-                  const itensW=fontBold.widthOfTextAtSize(itensText,7.82);
+                  const itensText="ITENS DO PEDIDO"; const itensW=fontBold.widthOfTextAtSize(itensText,7.82);
                   page.drawText(itensText, {x:(width-itensW)/2, y:height-288.48, size:7.82, font:fontBold, color:rgb(1,1,1)});
 
-                  // Extrair nome do cliente do PDF content stream
-                  let nomeCliente="Cliente";
-                  try {
-                    const ref=page.node.get(PDFName.of("Contents"));
-                    if(ref){
-                      const obj=pdfDoc.context.lookup(ref);
-                      let stream="";
-                      if(obj){
-                        try{
-                          const dec=obj.decodeContents?new TextDecoder("latin1").decode(obj.decodeContents()):new TextDecoder("latin1").decode(obj.getContents());
-                          stream=dec;
-                        }catch(e){}
-                        if(!stream&&obj.constructor.name==="PDFArray"){
-                          for(let i=0;i<obj.size();i++){
-                            const sr=obj.get(i); const st=pdfDoc.context.lookup(sr);
-                            if(st){try{stream+=new TextDecoder("latin1").decode(st.decodeContents?st.decodeContents():st.getContents());}catch(e){}}
-                          }
-                        }
-                      }
-                      if(stream){
-                        const parts=[];
-                        let m; const tjR=/\(([^)]*)\)\s*Tj/g;
-                        while((m=tjR.exec(stream))!==null) parts.push(m[1]);
-                        const tjAR=/\[([^\]]*)\]\s*TJ/g;
-                        while((m=tjAR.exec(stream))!==null){const inner=m[1];const sR=/\(([^)]*)\)/g;let s;let c="";while((s=sR.exec(inner))!==null)c+=s[1];if(c)parts.push(c);}
-                        const full=parts.join(" ");
-                        const cm=full.match(/CLIENTE:\s*(.+?)(?:\s*DATA:|\s*$)/i);
-                        if(cm){let n=cm[1].trim();n=n.replace(/\b\w+/g,w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase());nomeCliente=n;}
-                      }
-                    }
-                  }catch(e){}
-                  setConvCliente(nomeCliente);
-
-                  // === 5. PÁGINA DE OBSERVAÇÕES ===
-                  const lastPage=pages[pages.length-1];
-                  const{width:lW,height:lH}=lastPage.getSize();
+                  // === 5. OBSERVAÇÕES (texto editável) ===
+                  const lastPage=pages[pages.length-1]; const{width:lW,height:lH}=lastPage.getSize();
                   const obsPage=pdfDoc.addPage([lW,lH]);
-
-                  // Cabeçalho
                   obsPage.drawRectangle({x:0, y:lH-52, width:lW, height:52, color:rgb(0.753,0.753,0.753)});
                   obsPage.drawText("OBSERVAÇÕES DO PEDIDO DE COMPRA", {x:150, y:lH-35, size:14, font:fontBold, color:rgb(0,0,0)});
-
-                  const obsTexto = [
-                    "INFORMAÇÕES IMPORTANTES",
-                    "",
-                    "GARANTIA:",
-                    "• Todos os produtos possuem garantia de 3 (três) anos contra defeitos de fabricação.",
-                    "• A garantia não cobre mau uso, desgaste natural ou danos causados por terceiros.",
-                    "",
-                    "PRAZOS DE ENTREGA:",
-                    "• Persianas: 15 a 20 dias úteis após confirmação do pedido.",
-                    "• Cortinas: 20 a 25 dias úteis após confirmação do pedido.",
-                    "• Produtos motorizados podem acrescentar até 5 dias úteis ao prazo.",
-                    "• Prazos sujeitos a alteração em períodos de alta demanda.",
-                    "",
-                    "INSTALAÇÃO:",
-                    "• A instalação será agendada após a chegada do produto.",
-                    "• O ambiente deve estar livre e acessível no dia da instalação.",
-                    "• Qualquer alteração estrutural (alvenaria, gesso, elétrica) é de",
-                    "  responsabilidade do cliente.",
-                    "• Instalação inclusa conforme orçamento aprovado.",
-                    "",
-                    "PAGAMENTO:",
-                    "• Condições conforme negociado no ato da venda.",
-                    "• O pedido só entra em produção após confirmação do pagamento",
-                    "  da entrada (quando aplicável).",
-                    "",
-                    "CANCELAMENTO:",
-                    "• Pedidos podem ser cancelados em até 24 horas após a confirmação",
-                    "  sem custo adicional.",
-                    "• Após início da produção, será cobrada taxa de 30% do valor total",
-                    "  a título de custos de produção.",
-                    "• Produtos personalizados (medidas especiais) não são passíveis de",
-                    "  devolução após a produção.",
-                    "",
-                    "OBSERVAÇÕES GERAIS:",
-                    "• Pequenas variações de cor podem ocorrer entre a amostra e o",
-                    "  produto final devido ao processo de fabricação.",
-                    "• As medidas finais são de responsabilidade do consultor técnico",
-                    "  que realizou a visita.",
-                    "• Este pedido de compra tem validade de 30 dias.",
-                    "",
-                    "",
-                    "Persianas em Casa — Qualidade e conforto para seu lar."
-                  ];
-
-                  let oY = lH - 90;
-                  obsTexto.forEach(linha => {
-                    const isTitulo = linha === linha.toUpperCase() && linha.length > 0 && !linha.startsWith("•") && !linha.startsWith(" ");
-                    obsPage.drawText(linha, {
-                      x: 50,
-                      y: oY,
-                      size: isTitulo ? 11 : 9,
-                      font: isTitulo ? fontBold : fontRegular,
-                      color: isTitulo ? rgb(0.722,0.525,0.043) : rgb(0.2,0.2,0.2)
-                    });
-                    oY -= isTitulo ? 18 : 14;
-                  });
+                  const obsLinhas=convObs.split("\n"); let oY=lH-90;
+                  obsLinhas.forEach(linha=>{ if(oY<50) return; obsPage.drawText(linha,{x:45,y:oY,size:9,font:fontRegular,color:rgb(0.2,0.2,0.2)}); oY-=14; });
+                  oY-=20; obsPage.drawText("Persianas em Casa — Qualidade e conforto para seu lar.",{x:45,y:oY,size:9,font:fontBold,color:rgb(0.722,0.525,0.043)});
 
                   const pdfBytes=await pdfDoc.save();
                   const safeName=nomeCliente.replace(/[<>:"/\\|?*]/g,"").trim();
@@ -3573,11 +3559,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   const url=URL.createObjectURL(blob);
                   setConvResult({url,nome:`Pedido de compra ${safeName}.pdf`});
                   showToast("PDF convertido com sucesso!");
-
-                } catch(e) {
-                  console.error(e);
-                  setConvErro("Erro ao processar o PDF. Verifique se é um orçamento válido do sistema.");
-                }
+                  salvarHistoricoConv(nomeCliente, numeroPedido, userInfo.nome);
+                } catch(e) { console.error(e); setConvErro("Erro ao processar o PDF. Verifique se é um orçamento válido."); }
                 setConvLoading(false);
               }}>
                 {convLoading ? "⏳ Convertendo..." : "🔄 Converter para Pedido de Compra"}
@@ -3595,38 +3578,39 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                       <div style={{fontSize:12,color:"#555",marginTop:2}}>Cliente: {convCliente}</div>
                     </div>
                   </div>
-
-                  <div style={{fontSize:11,color:"#777",marginBottom:12}}>
-                    Alterações aplicadas: Título → Pedido de Compra · Prazo → 25 dias úteis · Validade → Garantia 3 anos · Itens do Pedido · Página de observações adicionada
-                  </div>
-
                   <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                    <a href={convResult.url} download={convResult.nome} style={{textDecoration:"none"}}>
-                      <button className="btn bp">📥 Baixar PDF</button>
-                    </a>
-                    <button className="btn bg" onClick={()=>{setConvFile(null);setConvResult(null);setConvErro("");setConvCliente("")}}>📄 Novo Arquivo</button>
+                    <a href={convResult.url} download={convResult.nome} style={{textDecoration:"none"}}><button className="btn bp">📥 Baixar PDF</button></a>
+                    {convTelefone && (
+                      <a href={`https://wa.me/55${convTelefone}?text=${encodeURIComponent(`Olá, ${convCliente.split(" ")[0]}! 😊\n\nSegue o seu pedido de compra conforme combinado.\n\nQualquer dúvida estou à disposição!\n\n${userInfo.nome} - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                        <button className="btn bg" style={{color:"#25d366",borderColor:"#25d36640"}}>💬 Enviar WhatsApp</button>
+                      </a>
+                    )}
+                    <button className="btn bg" onClick={()=>{setConvFile(null);setConvResult(null);setConvErro("");setConvCliente("");setConvTelefone("")}}>📄 Novo Arquivo</button>
                   </div>
                 </div>
-
-                {/* Preview */}
                 <div style={{marginTop:14,borderRadius:12,overflow:"hidden",border:"1px solid #2a2a3a"}}>
                   <iframe src={convResult.url} style={{width:"100%",height:500,border:"none"}} title="Preview PDF"/>
                 </div>
               </div>
             )}
 
-            {/* Info */}
-            <div style={{marginTop:20,padding:16,background:"#12121a",borderRadius:10,border:"1px solid #1e1e28"}}>
-              <div style={{fontSize:11,color:"#c9a84c",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>ℹ️ Como funciona</div>
-              <div style={{fontSize:12,color:"#777",lineHeight:1.8}}>
-                1. Faça upload do PDF do orçamento gerado pelo sistema<br/>
-                2. O sistema converte automaticamente em pedido de compra<br/>
-                3. Título, prazo, validade e seção de itens são alterados<br/>
-                4. Uma página de observações com garantia e termos é adicionada<br/>
-                5. Baixe o PDF convertido e envie ao cliente<br/>
-                <span style={{fontSize:11,color:"#555",marginTop:8,display:"block"}}>100% no navegador · Nenhum dado é enviado para servidores externos</span>
+            {/* Histórico */}
+            {convHistorico.length>0 && (
+              <div style={{marginTop:20}}>
+                <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>📋 Últimas conversões</div>
+                <div className="card">
+                  {convHistorico.map((h,i)=>(
+                    <div key={h.id||i} style={{padding:"10px 16px",borderBottom:"1px solid #1a1a24",display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13}}>
+                      <div>
+                        <span style={{fontWeight:600}}>{h.cliente}</span>
+                        {h.numero_pedido && <span style={{fontSize:11,color:"#c9a84c",marginLeft:8}}>#{h.numero_pedido}</span>}
+                      </div>
+                      <div style={{fontSize:11,color:"#555"}}>{h.data_conversao} · {h.usuario}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
