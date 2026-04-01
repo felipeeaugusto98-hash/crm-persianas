@@ -384,7 +384,15 @@ export default function CRM() {
   const [simValor, setSimValor] = useState("");
   const [simDesc, setSimDesc] = useState(0);
   const [checklist, setChecklist] = useState({trena:false,amostras:false,tablet:false,cartao:false,contrato:false,caneta:false,uniforme:false});
-  const emptyTicket = {numero:"", dataAbertura:hoje, tipo:"", descricao:"", status:"aberto", quemAbriu:"Felipe", observacoes:""};
+
+  // Mapa de usuários
+  const USUARIOS = {
+    "felipeeaugusto98@gmail.com": { nome: "Felipe", nomeCompleto: "Felipe Augusto de Oliveira Pereira", apelido: "Felipe P." },
+    "rafaela.castro@crm.com.br": { nome: "Rafaela", nomeCompleto: "Rafaela Castro", apelido: "Rafaela C." },
+  };
+  const userInfo = USUARIOS[sessao?.email] || { nome: sessao?.email?.split("@")[0] || "Usuário", nomeCompleto: sessao?.email || "Usuário", apelido: sessao?.email?.split("@")[0] || "Usuário" };
+
+  const emptyTicket = {numero:"", dataAbertura:hoje, tipo:"", descricao:"", status:"aberto", quemAbriu:userInfo.nome, observacoes:""};
   const [tickets, setTickets] = useState([]);
   const [formTicket, setFormTicket] = useState(null);
   const recarregarTickets = async () => { try { setTickets(await dbTickets.get()); } catch(e) { console.error(e); } };
@@ -903,7 +911,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
             <div style={{background:"#12121a",border:"1px solid #c9a84c40",borderRadius:16,padding:28,maxWidth:420,width:"100%",boxShadow:"0 20px 60px #000"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
                 <div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#c9a84c"}}>☀️ Bom dia, Felipe!</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#c9a84c"}}>☀️ Bom dia, {userInfo.nome}!</div>
                   <div style={{fontSize:12,color:"#555",marginTop:2}}>Você tem {visitasHoje.length} visita{visitasHoje.length!==1?"s":""} hoje</div>
                 </div>
                 <button className="btn bg" style={{fontSize:18,padding:"4px 10px"}} onClick={()=>setShowLembrete(false)}>✕</button>
@@ -963,7 +971,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       <div className="sidebar">
         <div style={{padding:"4px 8px 20px",borderBottom:"1px solid #1a1a24",marginBottom:8}}>
           <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#c9a84c",fontWeight:700}}>Persianas</div>
-          <div style={{fontSize:10,color:"#444",letterSpacing:"2px",textTransform:"uppercase"}}>CRM · Felipe P.</div>
+          <div style={{fontSize:10,color:"#444",letterSpacing:"2px",textTransform:"uppercase"}}>CRM · {userInfo.apelido}</div>
         </div>
         <div className={`nav ${view==="dashboard"?"on":""}`} onClick={()=>setView("dashboard")}>▦ Dashboard</div>
         <div className={`nav ${view==="lista"||view==="detalhe"?"on":""}`} onClick={()=>setView("lista")}>📋 Visitas</div>
@@ -1099,7 +1107,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
         {/* DASHBOARD */}
         {view==="dashboard" && (
           <div>
-            <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:3}}>Bom dia, Felipe! 👋</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:3}}>Bom dia, {userInfo.nome}! 👋</div>
             <div style={{fontSize:12,color:"#555",marginBottom:20}}>{hoje}</div>
 
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:16}} className="grid-4col">
@@ -1171,7 +1179,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                       </div>
                       <div style={{display:"flex",gap:8}}>
                         {v.telefone && (
-                          <a href={`https://wa.me/55${v.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${v.cliente?.split(" ")[0]}! Tudo bem?\n\nSegue o orçamento conforme combinamos na visita.\n\nQualquer dúvida estou à disposição!\n\nFelipe - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                          <a href={`https://wa.me/55${v.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${v.cliente?.split(" ")[0]}! Tudo bem?\n\nSegue o orçamento conforme combinamos na visita.\n\nQualquer dúvida estou à disposição!\n\n${userInfo.nome} - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
                             <button className="sb" style={{fontSize:11,color:"#25d366",borderColor:"#25d36640"}}>💬 Enviar</button>
                           </a>
                         )}
@@ -1302,7 +1310,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                           <div style={{fontSize:14,fontWeight:600,color:"#f59e0b"}}>🎉 {c.nome}</div>
                           <div style={{fontSize:11,color:"#555",marginTop:2}}>Aniversário HOJE!</div>
                         </div>
-                        <a href={`https://wa.me/55${c.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${c.nome?.split(" ")[0]}! 🎉🎂\n\nA equipe Persianas em Casa deseja a você um feliz aniversário! Que seu dia seja incrível!\n\nAbraços,\nFelipe - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                        <a href={`https://wa.me/55${c.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${c.nome?.split(" ")[0]}! 🎉🎂\n\nA equipe Persianas em Casa deseja a você um feliz aniversário! Que seu dia seja incrível!\n\nAbraços,\n${userInfo.nome} - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
                           <button className="btn bp" style={{fontSize:12,padding:"7px 14px"}}>🎂 Parabenizar</button>
                         </a>
                       </div>
@@ -1313,7 +1321,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                           <div style={{fontSize:14,fontWeight:600}}>{c.nome}</div>
                           <div style={{fontSize:11,color:"#f59e0b",marginTop:2}}>⏰ Aniversário amanhã</div>
                         </div>
-                        <a href={`https://wa.me/55${c.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${c.nome?.split(" ")[0]}! 🎉🎂\n\nA equipe Persianas em Casa deseja a você um feliz aniversário! Que seu dia seja incrível!\n\nAbraços,\nFelipe - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                        <a href={`https://wa.me/55${c.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${c.nome?.split(" ")[0]}! 🎉🎂\n\nA equipe Persianas em Casa deseja a você um feliz aniversário! Que seu dia seja incrível!\n\nAbraços,\n${userInfo.nome} - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
                           <button className="sb" style={{fontSize:12,color:"#f59e0b",borderColor:"#f59e0b40"}}>🎂 Preparar</button>
                         </a>
                       </div>
@@ -1669,9 +1677,9 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                       <label style={{fontSize:11,color:"#25d366",display:"block",marginBottom:6}}>💬 Avisar cliente pelo WhatsApp</label>
                       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                         {[
-                          {label:"Informar problema", msg:`Olá, ${formOcorrencia.cliente?.split(" ")[0]}! Tudo bem?\n\nEstou entrando em contato para informar que identificamos um problema com seu pedido: *${formOcorrencia.tipo}*.\n\nJá estamos providenciando a solução e em breve retornaremos com uma previsão.\n\nFelipe - Persianas em Casa`},
-                          {label:"Dar prazo", msg:`Olá, ${formOcorrencia.cliente?.split(" ")[0]}! Tudo bem?\n\nPassando para informar que a previsão de resolução do seu problema é *${formOcorrencia.previsao||"em breve"}*.\n\nQualquer dúvida estou à disposição!\n\nFelipe - Persianas em Casa`},
-                          {label:"Resolver", msg:`Olá, ${formOcorrencia.cliente?.split(" ")[0]}! Tudo bem?\n\nBoa notícia! O problema com seu pedido foi resolvido. ✅\n\nEntre em contato para agendarmos a próxima etapa.\n\nFelipe - Persianas em Casa`},
+                          {label:"Informar problema", msg:`Olá, ${formOcorrencia.cliente?.split(" ")[0]}! Tudo bem?\n\nEstou entrando em contato para informar que identificamos um problema com seu pedido: *${formOcorrencia.tipo}*.\n\nJá estamos providenciando a solução e em breve retornaremos com uma previsão.\n\n${userInfo.nome} - Persianas em Casa`},
+                          {label:"Dar prazo", msg:`Olá, ${formOcorrencia.cliente?.split(" ")[0]}! Tudo bem?\n\nPassando para informar que a previsão de resolução do seu problema é *${formOcorrencia.previsao||"em breve"}*.\n\nQualquer dúvida estou à disposição!\n\n${userInfo.nome} - Persianas em Casa`},
+                          {label:"Resolver", msg:`Olá, ${formOcorrencia.cliente?.split(" ")[0]}! Tudo bem?\n\nBoa notícia! O problema com seu pedido foi resolvido. ✅\n\nEntre em contato para agendarmos a próxima etapa.\n\n${userInfo.nome} - Persianas em Casa`},
                         ].map(t=>(
                           <a key={t.label} href={`https://wa.me/55${formOcorrencia.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(t.msg)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
                             <button className="sb" style={{color:"#25d366",borderColor:"#25d36640",fontSize:12}}>💬 {t.label}</button>
@@ -1780,7 +1788,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                         <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v.endereco||"")}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
                           <button className="sb" style={{color:"#3b82f6",borderColor:"#3b82f640",fontSize:11}}>📍 Maps</button>
                         </a>
-                        <a href={`https://wa.me/55${v.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${v.cliente?.split(" ")[0]}! Estou a caminho para nossa visita às ${v.horaVisita}. Até logo! 😊\n\nFelipe - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                        <a href={`https://wa.me/55${v.telefone?.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá, ${v.cliente?.split(" ")[0]}! Estou a caminho para nossa visita às ${v.horaVisita}. Até logo! 😊\n\n${userInfo.nome} - Persianas em Casa`)}`} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
                           <button className="sb" style={{color:"#25d366",borderColor:"#25d36640",fontSize:11}}>💬 Aviso</button>
                         </a>
                       </div>
@@ -2498,7 +2506,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   <div style={{fontSize:12,color:"#555",marginTop:2}}>Resumo executivo — {hoje.slice(3)}</div>
                 </div>
                 <button className="btn bg" style={{color:"#c9a84c",borderColor:"#c9a84c40",fontSize:12}} onClick={()=>{
-                  const txt = `RELATÓRIO MENSAL — ${hoje.slice(3)}\nFelipe Augusto de Oliveira Pereira\n${"─".repeat(40)}\n\nVISITAS\nTotal: ${totalVisitas} | Fechadas: ${fechados.length} | Perdidas: ${perdidos.length}\nConversão: ${conversaoG}%\n\nRECEITA\nTotal vendido: ${fmt(receitaTotal)}\nTicket médio: ${fmt(ticketMedio)}\nMeta mensal: ${fmt(META_MENSAL)}\nAtingimento: ${Math.round(receitaTotal/META_MENSAL*100)}%\n\nCOMISSÃO\nPercentual: ${comissao.pct}%\nValor: ${fmt(comissao.valorComissao)}\n\n${"─".repeat(40)}\nFECHAMENTOS:\n${fechados.map((v,i)=>`${i+1}. ${v.cliente} — ${fmt(valorFinal(v))}`).join("\n")}`;
+                  const txt = `RELATÓRIO MENSAL — ${hoje.slice(3)}\n${userInfo.nomeCompleto}\n${"─".repeat(40)}\n\nVISITAS\nTotal: ${totalVisitas} | Fechadas: ${fechados.length} | Perdidas: ${perdidos.length}\nConversão: ${conversaoG}%\n\nRECEITA\nTotal vendido: ${fmt(receitaTotal)}\nTicket médio: ${fmt(ticketMedio)}\nMeta mensal: ${fmt(META_MENSAL)}\nAtingimento: ${Math.round(receitaTotal/META_MENSAL*100)}%\n\nCOMISSÃO\nPercentual: ${comissao.pct}%\nValor: ${fmt(comissao.valorComissao)}\n\n${"─".repeat(40)}\nFECHAMENTOS:\n${fechados.map((v,i)=>`${i+1}. ${v.cliente} — ${fmt(valorFinal(v))}`).join("\n")}`;
                   navigator.clipboard.writeText(txt).then(()=>alert("Copiado!"));
                 }}>📋 Copiar Relatório</button>
               </div>
@@ -2716,10 +2724,10 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
               <div style={{fontSize:10,color:"#25d366",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>💬 Enviar WhatsApp</div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {[
-                  {label:"Confirmar Visita", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! Tudo bem? 😊\n\nPrazer me chamo Felipe Augusto e sou consultor da Persianas em Casa!\n\nPassando para confirmar sua visita agendada para *${selected.dataVisita} às ${selected.horaVisita}*. Estarei no endereço: ${selected.endereco}`},
-                  {label:"Enviar Orçamento", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nSegue o orçamento conforme combinado:\n\n📦 Produtos: ${selected.produtos||"—"}\n🏠 Ambiente: ${selected.ambiente||"—"}\n💰 Valor: *${fmt(valorFinal(selected))}*${selected.desconto&&Number(selected.desconto)>0?`\n✅ Desconto aplicado: ${selected.desconto}%`:""}${selected.linkOrcamento?`\n\n🔗 Orçamento completo: ${selected.linkOrcamento}`:""}\n\nFico à disposição para qualquer dúvida!\n\nFelipe - Persianas em Casa`},
-                  {label:"Follow-up", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! Tudo bem? 😊\n\nPassando para saber se ficou alguma dúvida sobre o orçamento que enviei.\n\nEstou à disposição para ajudar!\n\nFelipe - Persianas em Casa`},
-                  {label:"Confirmar Instalação", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nPassando para confirmar a instalação agendada para *${selected.dataInstalacao||"—"}*.\n\nQualquer dúvida é só chamar!\n\nFelipe - Persianas em Casa`},
+                  {label:"Confirmar Visita", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! Tudo bem? 😊\n\nPrazer me chamo ${userInfo.nomeCompleto} e sou consultor(a) da Persianas em Casa!\n\nPassando para confirmar sua visita agendada para *${selected.dataVisita} às ${selected.horaVisita}*. Estarei no endereço: ${selected.endereco}`},
+                  {label:"Enviar Orçamento", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nSegue o orçamento conforme combinado:\n\n📦 Produtos: ${selected.produtos||"—"}\n🏠 Ambiente: ${selected.ambiente||"—"}\n💰 Valor: *${fmt(valorFinal(selected))}*${selected.desconto&&Number(selected.desconto)>0?`\n✅ Desconto aplicado: ${selected.desconto}%`:""}${selected.linkOrcamento?`\n\n🔗 Orçamento completo: ${selected.linkOrcamento}`:""}\n\nFico à disposição para qualquer dúvida!\n\n${userInfo.nome} - Persianas em Casa`},
+                  {label:"Follow-up", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! Tudo bem? 😊\n\nPassando para saber se ficou alguma dúvida sobre o orçamento que enviei.\n\nEstou à disposição para ajudar!\n\n${userInfo.nome} - Persianas em Casa`},
+                  {label:"Confirmar Instalação", msg:()=>`Olá, ${selected.cliente?.split(" ")[0]}! 😊\n\nPassando para confirmar a instalação agendada para *${selected.dataInstalacao||"—"}*.\n\nQualquer dúvida é só chamar!\n\n${userInfo.nome} - Persianas em Casa`},
                 ].map(t=>{
                   const tel = selected.telefone?.replace(/\D/g,"");
                   const url = `https://wa.me/55${tel}?text=${encodeURIComponent(t.msg())}`;
@@ -2845,7 +2853,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
             </div>
             {importStep==="colar"&&(
               <div className="card" style={{padding:20}}>
-                <textarea className="inp" style={{minHeight:200}} placeholder={"Cole aqui o e-mail...\n\nExemplo:\nOlá, Felipe P,\nData: 16/03/2026\nHorário: 13:00\nEndereço: Rua..."} value={emailTexto} onChange={e=>setEmailTexto(e.target.value)}/>
+                <textarea className="inp" style={{minHeight:200}} placeholder={`Cole aqui o e-mail...\n\nExemplo:\nOlá, ${userInfo.apelido},\nData: 16/03/2026\nHorário: 13:00\nEndereço: Rua...`} value={emailTexto} onChange={e=>setEmailTexto(e.target.value)}/>
                 <div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}>
                   <button className="btn bp" onClick={()=>{if(!emailTexto.trim())return;setForm({...empty,...extrairEmail(emailTexto)});setImportStep("revisar")}} disabled={!emailTexto.trim()}>✨ Extrair Dados</button>
                   <button className="btn bg" onClick={()=>{setForm({...empty});setView("novo")}}>Manual</button>
@@ -3016,7 +3024,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 <button className="btn bg" style={{fontSize:12,padding:"7px 14px",color:"#10b981",borderColor:"#10b98140"}} onClick={()=>{
                   const fechados = visitas.filter(v=>v.status==="fechado");
                   const linhas = fechados.map((v,i)=>`${i+1}. ${v.cliente} | Produtos: ${v.produtos||"—"} | Valor: ${fmt(valorFinal(v))} | Comissão (${comissao.pct}%): ${fmt(valorFinal(v)*comissao.pct/100)}`).join("\n");
-                  const texto = `FECHAMENTO MENSAL — ${hoje.slice(3)}\nFelipe Augusto de Oliveira Pereira\n${"─".repeat(50)}\n\n${linhas}\n\n${"─".repeat(50)}\nTotal vendido: ${fmt(comissao.totalVendas)}\nComissão (${comissao.pct}%): ${fmt(comissao.valorComissao)}\nConversão: ${comissao.conversao}%`;
+                  const texto = `FECHAMENTO MENSAL — ${hoje.slice(3)}\n${userInfo.nomeCompleto}\n${"─".repeat(50)}\n\n${linhas}\n\n${"─".repeat(50)}\nTotal vendido: ${fmt(comissao.totalVendas)}\nComissão (${comissao.pct}%): ${fmt(comissao.valorComissao)}\nConversão: ${comissao.conversao}%`;
                   navigator.clipboard.writeText(texto).then(()=>alert("Copiado! Cole no e-mail ou WhatsApp para o gerente."));
                 }}>📋 Copiar Relatório</button>
               </div>
