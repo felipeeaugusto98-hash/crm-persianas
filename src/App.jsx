@@ -3416,7 +3416,6 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 if(!convFile) return;
                 setConvLoading(true); setConvErro(""); setConvResult(null);
                 try {
-                  // Carregar pdf-lib do CDN
                   if(!window.PDFLib){
                     await new Promise((res,rej)=>{
                       const s=document.createElement("script");
@@ -3425,122 +3424,115 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                       document.head.appendChild(s);
                     });
                   }
-                  const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+                  const { PDFDocument, PDFName, rgb, StandardFonts } = window.PDFLib;
 
-                  // Ler arquivo
                   let arrayBuf = await convFile.arrayBuffer();
                   let uint8 = new Uint8Array(arrayBuf);
 
                   // Detectar e remover cabeçalho HTML antes do %PDF
-                  const pdfStr = new TextDecoder("latin1").decode(uint8);
-                  const pdfIdx = pdfStr.indexOf("%PDF");
-                  if(pdfIdx > 0) {
-                    uint8 = uint8.slice(pdfIdx);
+                  for(let i=0;i<Math.min(uint8.length,1000);i++){
+                    if(uint8[i]===0x25&&uint8[i+1]===0x50&&uint8[i+2]===0x44&&uint8[i+3]===0x46){
+                      if(i>0){ uint8=uint8.slice(i); arrayBuf=uint8.buffer.slice(uint8.byteOffset,uint8.byteOffset+uint8.byteLength); }
+                      break;
+                    }
                   }
 
-                  const pdfDoc = await PDFDocument.load(uint8, {ignoreEncryption:true});
+                  const pdfDoc = await PDFDocument.load(arrayBuf, {ignoreEncryption:true});
                   const pages = pdfDoc.getPages();
                   const page = pages[0];
-                  const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-                  const fontNormal = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                  const {width,height} = page.getSize();
+                  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+                  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-                  // Cores do layout original
-                  const cinzaBarra = rgb(0.753, 0.753, 0.753);
-                  const dourado = rgb(0.722, 0.525, 0.043);
-                  const cinzaClaro = rgb(0.937, 0.937, 0.937);
-                  const branco = rgb(1, 1, 1);
+                  // === 1. TÍTULO: "ORÇAMENTO DE VENDA Nº:" → "PEDIDO DE COMPRA Nº:" ===
+                  page.drawRectangle({x:28.62, y:height-142.36, width:343, height:28.70, color:rgb(0.753,0.753,0.753), borderWidth:0});
+                  const titleText="PEDIDO DE COMPRA Nº:";
+                  const titleWidth=fontBold.widthOfTextAtSize(titleText,14.29);
+                  page.drawText(titleText, {x:372.26-titleWidth-4, y:height-136.33, size:14.29, font:fontBold, color:rgb(0,0,0)});
 
-                  // 1. TÍTULO: "ORÇAMENTO DE VENDA Nº:" → "PEDIDO DE COMPRA Nº:"
-                  page.drawRectangle({x:140, y:770, width:280, height:20, color:cinzaBarra});
-                  page.drawText("PEDIDO DE COMPRA Nº:", {x:145, y:774, size:11, font, color:rgb(0,0,0)});
+                  // === 2. PRAZO: "20" → "25 DIAS UTEIS" ===
+                  page.drawRectangle({x:454.83, y:height-204.70, width:111.83, height:20.78, color:rgb(1,1,1), borderWidth:0});
+                  page.drawText("25 DIAS UTEIS", {x:457.85, y:height-198.79, size:7.7, font:fontRegular, color:rgb(0,0,0)});
 
-                  // 2. PRAZO: "PRAZO DE ENTREGA: 20" → "25 DIAS UTEIS"
-                  page.drawRectangle({x:30, y:700, width:250, height:16, color:branco});
-                  page.drawText("PRAZO DE ENTREGA: 25 DIAS UTEIS", {x:32, y:703, size:9, font:fontNormal, color:rgb(0,0,0)});
+                  // === 3. "VALIDADE: 0 DIAS" → "GARANTIA: 3 ANOS" ===
+                  page.drawRectangle({x:28.62, y:height-246.26, width:30.88, height:20.78, color:rgb(0.937,0.937,0.937), borderWidth:0});
+                  page.drawRectangle({x:59.51, y:height-246.26, width:72.93, height:20.78, color:rgb(1,1,1), borderWidth:0});
+                  page.drawRectangle({x:132.44, y:height-246.26, width:80, height:20.78, color:rgb(0.937,0.937,0.937), borderWidth:0});
+                  page.drawText("GARANTIA:", {x:87.37, y:height-240.35, size:7.7, font:fontBold, color:rgb(0,0,0)});
+                  const gLabelW=fontBold.widthOfTextAtSize("GARANTIA: ",7.7);
+                  page.drawText("3 ANOS", {x:87.37+gLabelW, y:height-240.35, size:7.7, font:fontRegular, color:rgb(0,0,0)});
 
-                  // 3. VALIDADE: "VALIDADE: 0 DIAS" → "GARANTIA: 3 ANOS"
-                  page.drawRectangle({x:310, y:700, width:250, height:16, color:branco});
-                  page.drawText("GARANTIA: 3 ANOS", {x:312, y:703, size:9, font:fontNormal, color:rgb(0,0,0)});
+                  // === 4. "ITENS DO ORÇAMENTO" → "ITENS DO PEDIDO" ===
+                  page.drawRectangle({x:28.63, y:height-294.49, width:538.02, height:21.13, color:rgb(0.722,0.525,0.043), borderWidth:0});
+                  const itensText="ITENS DO PEDIDO";
+                  const itensW=fontBold.widthOfTextAtSize(itensText,7.82);
+                  page.drawText(itensText, {x:(width-itensW)/2, y:height-288.48, size:7.82, font:fontBold, color:rgb(1,1,1)});
 
-                  // 4. SEÇÃO DE ITENS: "ITENS DO ORÇAMENTO" → "ITENS DO PEDIDO"
-                  page.drawRectangle({x:30, y:640, width:535, height:18, color:cinzaClaro});
-                  page.drawText("ITENS DO PEDIDO", {x:235, y:644, size:10, font, color:dourado});
-
-                  // Extrair nome do cliente do PDF
-                  const textContent = pdfStr;
-                  const clienteMatch = textContent.match(/CLIENTE:\s*([^\n\r]+)/i) || textContent.match(/Cliente:\s*([^\n\r]+)/i);
-                  const nomeCliente = clienteMatch ? clienteMatch[1].trim().split("  ")[0].trim() : "Cliente";
+                  // Extrair nome do cliente do PDF content stream
+                  let nomeCliente="Cliente";
+                  try {
+                    const ref=page.node.get(PDFName.of("Contents"));
+                    if(ref){
+                      const obj=pdfDoc.context.lookup(ref);
+                      let stream="";
+                      if(obj){
+                        try{
+                          const dec=obj.decodeContents?new TextDecoder("latin1").decode(obj.decodeContents()):new TextDecoder("latin1").decode(obj.getContents());
+                          stream=dec;
+                        }catch(e){}
+                        if(!stream&&obj.constructor.name==="PDFArray"){
+                          for(let i=0;i<obj.size();i++){
+                            const sr=obj.get(i); const st=pdfDoc.context.lookup(sr);
+                            if(st){try{stream+=new TextDecoder("latin1").decode(st.decodeContents?st.decodeContents():st.getContents());}catch(e){}}
+                          }
+                        }
+                      }
+                      if(stream){
+                        const parts=[];
+                        let m; const tjR=/\(([^)]*)\)\s*Tj/g;
+                        while((m=tjR.exec(stream))!==null) parts.push(m[1]);
+                        const tjAR=/\[([^\]]*)\]\s*TJ/g;
+                        while((m=tjAR.exec(stream))!==null){const inner=m[1];const sR=/\(([^)]*)\)/g;let s;let c="";while((s=sR.exec(inner))!==null)c+=s[1];if(c)parts.push(c);}
+                        const full=parts.join(" ");
+                        const cm=full.match(/CLIENTE:\s*(.+?)(?:\s*DATA:|\s*$)/i);
+                        if(cm){let n=cm[1].trim();n=n.replace(/\b\w+/g,w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase());nomeCliente=n;}
+                      }
+                    }
+                  }catch(e){}
                   setConvCliente(nomeCliente);
 
-                  // 5. NOVA PÁGINA com observações
-                  const newPage = pdfDoc.addPage([595.28, 841.89]);
-
-                  // Cabeçalho da nova página
-                  newPage.drawRectangle({x:0, y:790, width:595.28, height:52, color:cinzaBarra});
-                  newPage.drawText("OBSERVAÇÕES DO PEDIDO DE COMPRA", {x:150, y:810, size:14, font, color:rgb(0,0,0)});
-
-                  const obsTexto = [
-                    "INFORMAÇÕES IMPORTANTES",
-                    "",
-                    "GARANTIA:",
-                    "• Todos os produtos possuem garantia de 3 (três) anos contra defeitos de fabricação.",
-                    "• A garantia não cobre mau uso, desgaste natural ou danos causados por terceiros.",
-                    "",
-                    "PRAZOS DE ENTREGA:",
-                    "• Persianas: 15 a 20 dias úteis após confirmação do pedido.",
-                    "• Cortinas: 20 a 25 dias úteis após confirmação do pedido.",
-                    "• Produtos motorizados podem acrescentar até 5 dias úteis ao prazo.",
-                    "• Prazos sujeitos a alteração em períodos de alta demanda.",
-                    "",
-                    "INSTALAÇÃO:",
-                    "• A instalação será agendada após a chegada do produto.",
-                    "• O ambiente deve estar livre e acessível no dia da instalação.",
-                    "• Qualquer alteração estrutural (alvenaria, gesso, elétrica) é de",
-                    "  responsabilidade do cliente.",
-                    "• Instalação inclusa conforme orçamento aprovado.",
-                    "",
-                    "PAGAMENTO:",
-                    "• Condições conforme negociado no ato da venda.",
-                    "• O pedido só entra em produção após confirmação do pagamento",
-                    "  da entrada (quando aplicável).",
-                    "",
-                    "CANCELAMENTO:",
-                    "• Pedidos podem ser cancelados em até 24 horas após a confirmação",
-                    "  sem custo adicional.",
-                    "• Após início da produção, será cobrada taxa de 30% do valor total",
-                    "  a título de custos de produção.",
-                    "• Produtos personalizados (medidas especiais) não são passíveis de",
-                    "  devolução após a produção.",
-                    "",
-                    "OBSERVAÇÕES GERAIS:",
-                    "• Pequenas variações de cor podem ocorrer entre a amostra e o",
-                    "  produto final devido ao processo de fabricação.",
-                    "• As medidas finais são de responsabilidade do consultor técnico",
-                    "  que realizou a visita.",
-                    "• Este pedido de compra tem validade de 30 dias.",
-                    "",
-                    "",
-                    "Persianas em Casa — Qualidade e conforto para seu lar."
+                  // === 5. PÁGINA DE OBSERVAÇÕES ===
+                  const lastPage=pages[pages.length-1];
+                  const{width:lW,height:lH}=lastPage.getSize();
+                  const obsPage=pdfDoc.addPage([lW,lH]);
+                  const obsStartY=lH-80;
+                  const obsTitle="Observações:";
+                  const obsTW=fontBold.widthOfTextAtSize(obsTitle,14);
+                  obsPage.drawText(obsTitle,{x:(lW-obsTW)/2,y:obsStartY,size:14,font:fontBold,color:rgb(0,0,0)});
+                  const obsLines=[
+                    {bold:true,text:"Informações adicionais:"},
+                    {bold:false,text:"Nota fiscal será entregue junto com o produto no ato da instalação"},
+                    {bold:false,text:"Garantia de 3 anos em todos os produtos"},
+                    {bold:false,text:"Prazo de entrega de 15 a 20 dias úteis para persianas"},
+                    {bold:false,text:"Prazo de entrega de 20 a 25 dias úteis para cortinas"},
+                    {bold:false,text:"Orientações de instalação: Instalação será agendada dentro do horário comercial"},
+                    {bold:false,text:"(período: manhã ou tarde)"},
+                    {bold:false,text:"O cancelamento ou reagendamento pode ser feito até 24 horas antes."},
+                    {bold:false,text:"Não cobramos custo adicional para mão de obra e instalação do produto em SP-SP"},
+                    {bold:false,text:"Estão excluídos os serviços de alvenaria, instalações de rede elétrica, papel de parede,"},
+                    {bold:false,text:"cimento e frete de peças para grandes vão"},
+                    {bold:false,text:"No caso do instalador não conseguir efetuar a instalação por algum motivo técnico e"},
+                    {bold:false,text:"precise de reagendamento, será cobrada uma taxa de R$ 120,00."},
+                    {bold:false,text:"O instalador pode ficar esperando até 15 minutos para entrar no cliente."},
                   ];
+                  let oY=obsStartY-30;
+                  obsLines.forEach(l=>{obsPage.drawText(l.text,{x:45,y:oY,size:9,font:l.bold?fontBold:fontRegular,color:rgb(0,0,0)});oY-=14;});
 
-                  let yPos = 760;
-                  obsTexto.forEach(linha => {
-                    const isTitulo = linha === linha.toUpperCase() && linha.length > 0 && !linha.startsWith("•") && !linha.startsWith(" ");
-                    newPage.drawText(linha, {
-                      x: 50,
-                      y: yPos,
-                      size: isTitulo ? 11 : 9,
-                      font: isTitulo ? font : fontNormal,
-                      color: isTitulo ? dourado : rgb(0.2, 0.2, 0.2)
-                    });
-                    yPos -= isTitulo ? 18 : 14;
-                  });
-
-                  // Salvar e baixar
-                  const pdfBytes = await pdfDoc.save();
-                  const blob = new Blob([pdfBytes], {type:"application/pdf"});
-                  const url = URL.createObjectURL(blob);
-                  setConvResult({url, nome:`Pedido de compra ${nomeCliente}.pdf`});
+                  const pdfBytes=await pdfDoc.save();
+                  const safeName=nomeCliente.replace(/[<>:"/\\|?*]/g,"").trim();
+                  const blob=new Blob([pdfBytes],{type:"application/pdf"});
+                  const url=URL.createObjectURL(blob);
+                  setConvResult({url,nome:`Pedido de compra ${safeName}.pdf`});
                   showToast("PDF convertido com sucesso!");
 
                 } catch(e) {
