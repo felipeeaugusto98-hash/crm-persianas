@@ -579,8 +579,21 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
 
   useEffect(() => { if(sessao) carregar(); }, [sessao]);
 
+  const parseData = (str) => { if(!str) return null; const [d,m,a]=str.split("/"); if(!d||!m||!a) return null; return new Date(`${a}-${m}-${d}`); };
+
+  // Filtrar visitas do mês atual
+  const visitasMes = useMemo(() => {
+    const agora = new Date();
+    const mesAtual = agora.getMonth();
+    const anoAtual = agora.getFullYear();
+    return visitas.filter(v => {
+      const d = parseData(v.dataCriacao || v.dataVisita);
+      return d && d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+    });
+  }, [visitas]);
+
   const stats = useMemo(() => {
-    const fechados = visitas.filter(v=>v.status==="fechado");
+    const fechados = visitasMes.filter(v=>v.status==="fechado");
     const agora = new Date();
     const diaSemana = agora.getDay();
     const inicioSemana = new Date(agora);
@@ -590,28 +603,23 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     fimSemana.setDate(inicioSemana.getDate()+6);
     fimSemana.setHours(23,59,59,999);
 
-    const parseData = (str) => {
-      if(!str) return null;
-      const [d,m,a] = str.split("/");
-      return new Date(`${a}-${m}-${d}`);
-    };
-
     const fechadosSemana = fechados.filter(v=>{
       const d = parseData(v.dataVisita);
       return d && d>=inicioSemana && d<=fimSemana;
     });
-    const visitasSemana = visitas.filter(v=>{
+    const visitasSemana = visitasMes.filter(v=>{
       const d = parseData(v.dataVisita);
       return d && d>=inicioSemana && d<=fimSemana;
     });
 
     return {
-      total: visitas.length,
+      total: visitasMes.length,
+      totalGeral: visitas.length,
       fechados: fechados.length,
-      pendentes: visitas.filter(v=>v.status==="orcamento_enviado").length,
+      pendentes: visitasMes.filter(v=>v.status==="orcamento_enviado").length,
       hoje: visitas.filter(v=>v.dataVisita===hoje).length,
       receita: fechados.reduce((a,v)=>a+valorFinal(v),0),
-      conversao: visitas.length>0?((fechados.length/visitas.length)*100).toFixed(0):0,
+      conversao: visitasMes.length>0?((fechados.length/visitasMes.length)*100).toFixed(0):0,
       semana: {
         receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0),
         vendas: fechadosSemana.length,
@@ -621,11 +629,11 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
         fim: fimSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
       }
     };
-  }, [visitas]);
+  }, [visitas, visitasMes]);
 
   const rankingProdutos = useMemo(()=>{
     const mapa = {};
-    visitas.forEach(v=>{
+    visitasMes.forEach(v=>{
       (v.produtos||"").split(",").forEach(p=>{
         const pt=p.trim(); if(!pt) return;
         if(!mapa[pt]) mapa[pt]={total:0,fechados:0,receita:0};
@@ -638,18 +646,17 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       receita:d.receita,
       conversao:d.total>0?Math.round(d.fechados/d.total*100):0
     })).sort((a,b)=>b.receita-a.receita);
-  }, [visitas]);
+  }, [visitasMes]);
 
   const tempoMedio = useMemo(()=>{
-    const parseData=(str)=>{if(!str)return null;const[d,m,a]=str.split("/");return new Date(`${a}-${m}-${d}`);};
-    const fechados = visitas.filter(v=>v.status==="fechado"&&v.dataVisita&&v.dataCriacao);
+    const fechados = visitasMes.filter(v=>v.status==="fechado"&&v.dataVisita&&v.dataCriacao);
     const dias = fechados.map(v=>{
       const criacao=parseData(v.dataCriacao); const visita=parseData(v.dataVisita);
       if(!criacao||!visita) return null;
       return Math.abs(Math.floor((visita-criacao)/(1000*60*60*24)));
     }).filter(d=>d!==null&&d>=0&&d<=90);
     return dias.length>0?Math.round(dias.reduce((a,b)=>a+b,0)/dias.length):null;
-  }, [visitas]);
+  }, [visitasMes]);
 
   const filtradas = useMemo(() => visitas.filter(v => {
     const s1=filtro==="todos"||v.status===filtro;
@@ -658,9 +665,9 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
   }), [visitas, filtro, search]);
 
   const comissao = useMemo(() => {
-    const fechados = visitas.filter(v => v.status === "fechado");
+    const fechados = visitasMes.filter(v => v.status === "fechado");
     const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0);
-    const totalVisitas = visitas.length;
+    const totalVisitas = visitasMes.length;
     const conversao = totalVisitas > 0 ? (fechados.length / totalVisitas) * 100 : 0;
 
     let pct = 10;
@@ -689,7 +696,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       proximaFaixaVenda: totalVendas < 40000 ? 40000 : totalVendas < 60000 ? 60000 : totalVendas < 80000 ? 80000 : totalVendas < 100000 ? 100000 : totalVendas < 120000 ? 120000 : null,
       proximaFaixaConv: conversao < 50 ? 50 : conversao < 60 ? 60 : conversao < 70 ? 70 : conversao < 80 ? 80 : conversao < 90 ? 90 : null,
     };
-  }, [visitas]);
+  }, [visitasMes]);
 
   // Alertas de pedidos perto do prazo / atrasados
   const pedidosAlerta = useMemo(() => {
@@ -1133,14 +1140,14 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
         {view==="dashboard" && (
           <div>
             <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:3}}>Bom dia, {userInfo.nome}! 👋</div>
-            <div style={{fontSize:12,color:"#555",marginBottom:20}}>{hoje}</div>
+            <div style={{fontSize:12,color:"#555",marginBottom:20}}>{hoje} · <span style={{color:"#c9a84c",textTransform:"capitalize"}}>{new Date().toLocaleString("pt-BR",{month:"long",year:"numeric"})}</span></div>
 
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:16}} className="grid-4col">
               {[
                 {label:"Visitas Hoje",value:stats.hoje,color:"#3b82f6"},
-                {label:"Pendentes",value:stats.pendentes,color:"#8b5cf6"},
-                {label:"Conversão",value:`${stats.conversao}%`,color:"#c9a84c"},
-                {label:"Receita",value:fmt(stats.receita),color:"#10b981"},
+                {label:"Pendentes (mês)",value:stats.pendentes,color:"#8b5cf6"},
+                {label:"Conversão (mês)",value:`${stats.conversao}%`,color:"#c9a84c"},
+                {label:"Receita (mês)",value:fmt(stats.receita),color:"#10b981"},
               ].map((st,i)=>(
                 <div key={i} className="sc">
                   <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>{st.label}</div>
