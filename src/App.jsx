@@ -3522,13 +3522,13 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   }
 
                   // === 0. CABEÇALHO ===
-                  page.drawRectangle({x:350, y:height-80, width:220, height:30, color:rgb(1,1,1), borderWidth:0});
-                  page.drawText("A empresa PERSIANAS EM CASA LTDA., com sede em Campinas, SP,", {x:355, y:height-65, size:6.5, font:fontRegular, color:rgb(0,0,0)});
-                  page.drawText("está cadastrada sob o CNPJ 46.987.484/0001-05", {x:390, y:height-76, size:6.5, font:fontRegular, color:rgb(0,0,0)});
+                  page.drawRectangle({x:300, y:height-85, width:270, height:40, color:rgb(1,1,1), borderWidth:0});
+                  page.drawText("A empresa PERSIANAS EM CASA LTDA., com sede em Campinas, SP,", {x:340, y:height-65, size:6.5, font:fontRegular, color:rgb(0,0,0)});
+                  page.drawText("está cadastrada sob o CNPJ 46.987.484/0001-05", {x:370, y:height-76, size:6.5, font:fontRegular, color:rgb(0,0,0)});
                   // === 1. TÍTULO ===
                   page.drawRectangle({x:28.62, y:height-142.36, width:343, height:28.70, color:rgb(0.753,0.753,0.753), borderWidth:0});
                   const titleText="PEDIDO DE COMPRA Nº:"; const titleWidth=fontBold.widthOfTextAtSize(titleText,14.29);
-                  page.drawText(titleText, {x:372.26-titleWidth-4, y:height-136.33, size:14.29, font:fontBold, color:rgb(0,0,0)});
+                  page.drawText(titleText, {x:372.26-titleWidth-6, y:height-136.33, size:14.29, font:fontBold, color:rgb(0,0,0)});
                   // === 2. PRAZO ===
                   page.drawRectangle({x:454.83, y:height-204.70, width:111.83, height:20.78, color:rgb(1,1,1), borderWidth:0});
                   page.drawText(prazoTexto, {x:457.85, y:height-198.79, size:7.7, font:fontRegular, color:rgb(0,0,0)});
