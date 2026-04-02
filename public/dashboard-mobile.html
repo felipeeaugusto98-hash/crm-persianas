@@ -84,12 +84,13 @@ async function carregar() {
       return d && d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
     });
 
+    const ativas = visitasMes.filter(v => v.status !== "cancelado");
     const valorFinal = v => { const val=Number(v.valorOrcamento||0); return val-(val*Number(v.desconto||0))/100; };
-    const fechados = visitasMes.filter(v => v.status === "fechado");
+    const fechados = ativas.filter(v => v.status === "fechado");
     const receita = fechados.reduce((a,v) => a + valorFinal(v), 0);
-    const conversao = visitasMes.length > 0 ? Math.round((fechados.length / visitasMes.length) * 100) : 0;
-    const visitasHoje = visitas.filter(v => v.dataVisita === hoje).length;
-    const pendentes = visitasMes.filter(v => v.status === "orcamento_enviado").length;
+    const conversao = ativas.length > 0 ? Math.round((fechados.length / ativas.length) * 100) : 0;
+    const visitasHoje = visitas.filter(v => v.dataVisita === hoje && v.status !== "cancelado").length;
+    const pendentes = ativas.filter(v => v.status === "orcamento_enviado").length;
     const ticketMedio = fechados.length > 0 ? receita / fechados.length : 0;
     const pctMeta = Math.min(receita / META, 1);
     const corMeta = pctMeta >= 1 ? "#10b981" : pctMeta >= 0.6 ? "#c9a84c" : "#ef4444";
@@ -104,7 +105,7 @@ async function carregar() {
     fimSemana.setHours(23,59,59,999);
 
     const fechadosSemana = fechados.filter(v => { const d=parseData(v.dataVisita); return d&&d>=inicioSemana&&d<=fimSemana; });
-    const visitasSemana = visitasMes.filter(v => { const d=parseData(v.dataVisita); return d&&d>=inicioSemana&&d<=fimSemana; });
+    const visitasSemana = ativas.filter(v => { const d=parseData(v.dataVisita); return d&&d>=inicioSemana&&d<=fimSemana; });
     const receitaSemana = fechadosSemana.reduce((a,v) => a+valorFinal(v), 0);
 
     // Mês label

@@ -283,13 +283,14 @@ function GraficoLinha({ visitas }) {
 }
 
 function Funil({ visitas }) {
+  const ativas = visitas.filter(v=>v.status!=="cancelado");
   const etapas = [
     {label:"Leads",key:null,color:"#3b82f6"},
     {label:"Visitado",key:"visitado",color:"#f59e0b"},
     {label:"Orçamento",key:"orcamento_enviado",color:"#8b5cf6"},
     {label:"Fechado",key:"fechado",color:"#10b981"},
   ];
-  const counts = etapas.map(e => e.key===null ? visitas.length : visitas.filter(v=>v.status===e.key).length);
+  const counts = etapas.map(e => e.key===null ? ativas.length : ativas.filter(v=>v.status===e.key).length);
   const max = Math.max(counts[0],1);
   return (
     <div>
@@ -594,7 +595,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
   }, [visitas]);
 
   const stats = useMemo(() => {
-    const fechados = visitasMes.filter(v=>v.status==="fechado");
+    const ativas = visitasMes.filter(v=>v.status!=="cancelado");
+    const fechados = ativas.filter(v=>v.status==="fechado");
     const agora = new Date();
     const diaSemana = agora.getDay();
     const inicioSemana = new Date(agora);
@@ -608,24 +610,25 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       const d = parseData(v.dataVisita);
       return d && d>=inicioSemana && d<=fimSemana;
     });
-    const visitasSemana = visitasMes.filter(v=>{
+    const ativasSemana = ativas.filter(v=>{
       const d = parseData(v.dataVisita);
       return d && d>=inicioSemana && d<=fimSemana;
     });
 
     return {
-      total: visitasMes.length,
-      totalGeral: visitas.length,
+      total: ativas.length,
+      totalGeral: visitas.filter(v=>v.status!=="cancelado").length,
+      cancelados: visitasMes.filter(v=>v.status==="cancelado").length,
       fechados: fechados.length,
-      pendentes: visitasMes.filter(v=>v.status==="orcamento_enviado").length,
-      hoje: visitas.filter(v=>v.dataVisita===hoje).length,
+      pendentes: ativas.filter(v=>v.status==="orcamento_enviado").length,
+      hoje: visitas.filter(v=>v.dataVisita===hoje&&v.status!=="cancelado").length,
       receita: fechados.reduce((a,v)=>a+valorFinal(v),0),
-      conversao: visitasMes.length>0?((fechados.length/visitasMes.length)*100).toFixed(0):0,
+      conversao: ativas.length>0?((fechados.length/ativas.length)*100).toFixed(0):0,
       semana: {
         receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0),
         vendas: fechadosSemana.length,
-        visitas: visitasSemana.length,
-        conversao: visitasSemana.length>0?Math.round(fechadosSemana.length/visitasSemana.length*100):0,
+        visitas: ativasSemana.length,
+        conversao: ativasSemana.length>0?Math.round(fechadosSemana.length/ativasSemana.length*100):0,
         inicio: inicioSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
         fim: fimSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
       }
@@ -666,9 +669,10 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
   }), [visitas, filtro, search]);
 
   const comissao = useMemo(() => {
-    const fechados = visitasMes.filter(v => v.status === "fechado");
+    const ativas = visitasMes.filter(v=>v.status!=="cancelado");
+    const fechados = ativas.filter(v => v.status === "fechado");
     const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0);
-    const totalVisitas = visitasMes.length;
+    const totalVisitas = ativas.length;
     const conversao = totalVisitas > 0 ? (fechados.length / totalVisitas) * 100 : 0;
 
     let pct = 10;
