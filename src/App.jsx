@@ -200,6 +200,7 @@ const STATUS = {
   fechado: { label: "Fechado ✓", color: "#10b981", bg: "#10b98115", icon: "✅" },
   perdido: { label: "Perdido", color: "#ef4444", bg: "#ef444415", icon: "❌" },
   reagendar: { label: "Reagendar", color: "#f97316", bg: "#f9731615", icon: "🔄" },
+  cancelado: { label: "Cancelado", color: "#6b7280", bg: "#6b728015", icon: "🚫" },
 };
 
 const empty = { cliente:"", telefone:"", endereco:"", email:"", dataVisita:"", horaVisita:"", opId:"", ambiente:"", motivoCompra:"", urgencia:"", produtos:"", medidas:"", observacoes:"", valorOrcamento:"", desconto:"", dataInstalacao:"", linkOrcamento:"", status:"agendado", historico:[], dataCriacao: new Date().toLocaleDateString("pt-BR") };
@@ -2700,22 +2701,22 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   </div>
                 );
               }
-              if(selected.status==="perdido"){
+              if(selected.status==="perdido"||selected.status==="cancelado"){
                 return (
-                  <div className="card" style={{padding:14,marginBottom:14,borderColor:"#ef444440"}}>
+                  <div className="card" style={{padding:14,marginBottom:14,borderColor:selected.status==="cancelado"?"#6b728040":"#ef444440"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div>
-                        <div style={{fontSize:10,color:"#ef4444",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>🎯 Score do Lead</div>
-                        <div style={{fontSize:13,color:"#ef4444"}}>❌ Lead Perdido</div>
-                        <div style={{fontSize:11,color:"#444",marginTop:4}}>Negócio não concluído</div>
+                        <div style={{fontSize:10,color:selected.status==="cancelado"?"#6b7280":"#ef4444",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>🎯 Score do Lead</div>
+                        <div style={{fontSize:13,color:selected.status==="cancelado"?"#6b7280":"#ef4444"}}>{selected.status==="cancelado"?"🚫 Visita Cancelada":"❌ Lead Perdido"}</div>
+                        <div style={{fontSize:11,color:"#444",marginTop:4}}>{selected.status==="cancelado"?"Visita não realizada":"Negócio não concluído"}</div>
                       </div>
                       <div style={{textAlign:"center"}}>
-                        <div style={{fontFamily:"Georgia,serif",fontSize:36,color:"#ef4444",lineHeight:1}}>0</div>
+                        <div style={{fontFamily:"Georgia,serif",fontSize:36,color:selected.status==="cancelado"?"#6b7280":"#ef4444",lineHeight:1}}>0</div>
                         <div style={{fontSize:10,color:"#444"}}>/ 100</div>
                       </div>
                     </div>
                     <div style={{height:6,background:"#1a1a24",borderRadius:3,marginTop:10}}>
-                      <div style={{height:6,borderRadius:3,background:"#ef4444",width:"0%"}}/>
+                      <div style={{height:6,borderRadius:3,background:selected.status==="cancelado"?"#6b7280":"#ef4444",width:"0%"}}/>
                     </div>
                   </div>
                 );
