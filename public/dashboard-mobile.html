@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Persianas - Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'DM Sans',sans-serif;background:#0a0a0f;color:#e8e4dc;min-height:100vh;padding:16px;padding-top:env(safe-area-inset-top,16px)}
+  .header{text-align:center;margin-bottom:20px}
+  .header h1{font-size:18px;color:#c9a84c;font-weight:700;letter-spacing:1px}
+  .header .mes{font-size:12px;color:#555;text-transform:capitalize;margin-top:4px}
+  .header .update{font-size:10px;color:#333;margin-top:6px}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .kpi{background:#12121a;border:1px solid #22222e;border-radius:14px;padding:16px;position:relative;overflow:hidden}
+  .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--cor)}
+  .kpi .label{font-size:9px;color:#555;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+  .kpi .valor{font-size:22px;font-weight:700;color:var(--cor)}
+  .kpi .sub{font-size:10px;color:#444;margin-top:4px}
+  .kpi.wide{grid-column:span 2}
+  .kpi.wide .valor{font-size:28px}
+  .barra{margin-bottom:16px;background:#12121a;border:1px solid #22222e;border-radius:14px;padding:16px}
+  .barra .titulo{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}
+  .barra .meta-info{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .barra .meta-valor{font-size:20px;font-weight:700}
+  .barra .meta-pct{font-size:13px;font-weight:600}
+  .barra .track{height:8px;background:#1a1a24;border-radius:4px;overflow:hidden}
+  .barra .fill{height:100%;border-radius:4px;transition:width 1s ease}
+  .barra .falta{font-size:11px;color:#555;margin-top:8px}
+  .semana{background:#12121a;border:1px solid #22222e;border-radius:14px;padding:16px;margin-bottom:16px}
+  .semana .titulo{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px}
+  .semana .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center}
+  .semana .item .num{font-size:20px;font-weight:700}
+  .semana .item .desc{font-size:9px;color:#555;margin-top:2px;text-transform:uppercase;letter-spacing:1px}
+  .footer{text-align:center;font-size:10px;color:#333;margin-top:12px}
+  .live{display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981;margin-right:6px;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .loading{text-align:center;padding:60px;color:#555;font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 Persianas em Casa</h1>
+  <div class="mes" id="mes"></div>
+  <div class="update"><span class="live"></span>Atualiza a cada 3 min · <span id="lastUpdate"></span></div>
+</div>
+
+<div id="content"><div class="loading">Carregando...</div></div>
+
+<div class="footer">
+  Persianas em Casa · Dashboard em tempo real
+</div>
+
+<script>
+const SUPABASE_URL = "https://yoobeijjzzszltmhnsnr.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlvb2JlaWpqenpzemx0bWhuc25yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjg4NTMsImV4cCI6MjA4ODc0NDg1M30.ld-Nw95O56F9YMrDZob4mSKP6Je9vto7GaYvjOQ8jPo";
+const META = 150000;
+
+const fmt = v => Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const parseData = str => { if(!str) return null; const [d,m,a]=str.split("/"); if(!d||!m||!a) return null; return new Date(`${a}-${m}-${d}`); };
+
+async function carregar() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/visitas?order=created_at.desc`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    const visitas = (await res.json()).map(v => ({
+      ...v, valorOrcamento: v.valor_orcamento, dataVisita: v.data_visita,
+      horaVisita: v.hora_visita, dataCriacao: v.data_criacao
+    }));
+
+    const agora = new Date();
+    const mesAtual = agora.getMonth();
+    const anoAtual = agora.getFullYear();
+    const hoje = agora.toLocaleDateString("pt-BR");
+
+    // Filtrar mês atual
+    const visitasMes = visitas.filter(v => {
+      const d = parseData(v.dataCriacao || v.dataVisita);
+      return d && d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+    });
+
+    const valorFinal = v => { const val=Number(v.valorOrcamento||0); return val-(val*Number(v.desconto||0))/100; };
+    const fechados = visitasMes.filter(v => v.status === "fechado");
+    const receita = fechados.reduce((a,v) => a + valorFinal(v), 0);
+    const conversao = visitasMes.length > 0 ? Math.round((fechados.length / visitasMes.length) * 100) : 0;
+    const visitasHoje = visitas.filter(v => v.dataVisita === hoje).length;
+    const pendentes = visitasMes.filter(v => v.status === "orcamento_enviado").length;
+    const ticketMedio = fechados.length > 0 ? receita / fechados.length : 0;
+    const pctMeta = Math.min(receita / META, 1);
+    const corMeta = pctMeta >= 1 ? "#10b981" : pctMeta >= 0.6 ? "#c9a84c" : "#ef4444";
+
+    // Semana
+    const diaSemana = agora.getDay();
+    const inicioSemana = new Date(agora);
+    inicioSemana.setDate(agora.getDate() - (diaSemana===0?6:diaSemana-1));
+    inicioSemana.setHours(0,0,0,0);
+    const fimSemana = new Date(inicioSemana);
+    fimSemana.setDate(inicioSemana.getDate()+6);
+    fimSemana.setHours(23,59,59,999);
+
+    const fechadosSemana = fechados.filter(v => { const d=parseData(v.dataVisita); return d&&d>=inicioSemana&&d<=fimSemana; });
+    const visitasSemana = visitasMes.filter(v => { const d=parseData(v.dataVisita); return d&&d>=inicioSemana&&d<=fimSemana; });
+    const receitaSemana = fechadosSemana.reduce((a,v) => a+valorFinal(v), 0);
+
+    // Mês label
+    document.getElementById("mes").textContent = agora.toLocaleString("pt-BR",{month:"long",year:"numeric"});
+    document.getElementById("lastUpdate").textContent = agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+
+    document.getElementById("content").innerHTML = `
+      <div class="kpis">
+        <div class="kpi wide" style="--cor:#10b981">
+          <div class="label">Receita do Mês</div>
+          <div class="valor">${fmt(receita)}</div>
+          <div class="sub">${fechados.length} negócio${fechados.length!==1?"s":""} fechado${fechados.length!==1?"s":""}</div>
+        </div>
+        <div class="kpi" style="--cor:#3b82f6">
+          <div class="label">Visitas Hoje</div>
+          <div class="valor">${visitasHoje}</div>
+        </div>
+        <div class="kpi" style="--cor:#c9a84c">
+          <div class="label">Conversão</div>
+          <div class="valor">${conversao}%</div>
+          <div class="sub">${visitasMes.length} visitas no mês</div>
+        </div>
+        <div class="kpi" style="--cor:#8b5cf6">
+          <div class="label">Pendentes</div>
+          <div class="valor">${pendentes}</div>
+          <div class="sub">orçamentos enviados</div>
+        </div>
+        <div class="kpi" style="--cor:#f59e0b">
+          <div class="label">Ticket Médio</div>
+          <div class="valor" style="font-size:16px">${fmt(ticketMedio)}</div>
+        </div>
+      </div>
+
+      <div class="barra">
+        <div class="titulo">🎯 Meta Mensal</div>
+        <div class="meta-info">
+          <div class="meta-valor" style="color:${corMeta}">${fmt(receita)}</div>
+          <div class="meta-pct" style="color:${corMeta}">${Math.round(pctMeta*100)}%</div>
+        </div>
+        <div class="track">
+          <div class="fill" style="width:${Math.round(pctMeta*100)}%;background:linear-gradient(90deg,${corMeta},${corMeta}aa)"></div>
+        </div>
+        ${pctMeta<1 ? `<div class="falta">Faltam <strong style="color:${corMeta}">${fmt(META-receita)}</strong> para a meta</div>` : `<div class="falta" style="color:#10b981;font-weight:600">🏆 Meta batida!</div>`}
+      </div>
+
+      <div class="semana">
+        <div class="titulo">📅 Semana Atual — ${inicioSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})} a ${fimSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</div>
+        <div class="grid">
+          <div class="item">
+            <div class="num" style="color:#10b981">${fmt(receitaSemana).replace("R$","R$ ")}</div>
+            <div class="desc">Receita</div>
+          </div>
+          <div class="item">
+            <div class="num" style="color:#3b82f6">${visitasSemana.length}</div>
+            <div class="desc">Visitas</div>
+          </div>
+          <div class="item">
+            <div class="num" style="color:#c9a84c">${fechadosSemana.length}</div>
+            <div class="desc">Fechadas</div>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    console.error(e);
+    document.getElementById("content").innerHTML = '<div class="loading">Erro ao carregar dados</div>';
+  }
+}
+
+// Carregar imediatamente e depois a cada 3 minutos
+carregar();
+setInterval(carregar, 180000);
+</script>
+</body>
+</html>
