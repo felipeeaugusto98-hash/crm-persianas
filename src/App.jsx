@@ -1152,7 +1152,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
               {[
                 {label:"Visitas Realizadas",value:visitasMes.filter(v=>["visitado","orcamento_enviado","fechado","perdido"].includes(v.status)).length,color:"#3b82f6"},
                 {label:"Fechados (mês)",value:stats.fechados,color:"#10b981"},
-                {label:"Conversão (mês)",value:`${stats.conversao}%`,color:"#c9a84c"},
+                {label:"Conversão (mês)",value:`${(()=>{const realizadas=visitasMes.filter(v=>["visitado","orcamento_enviado","fechado","perdido"].includes(v.status)).length;return realizadas>0?Math.round(stats.fechados/realizadas*100):0})()}%`,color:"#c9a84c"},
                 {label:"Receita (mês)",value:fmt(stats.receita),color:"#10b981"},
               ].map((st,i)=>(
                 <div key={i} className="sc">
