@@ -80,7 +80,7 @@ async function carregar() {
 
     // Filtrar mês atual
     const visitasMes = visitas.filter(v => {
-      const d = parseData(v.dataCriacao || v.dataVisita);
+      const d = parseData(v.dataVisita || v.dataCriacao);
       return d && d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
     });
 

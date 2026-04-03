@@ -590,7 +590,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     const mesAtual = agora.getMonth();
     const anoAtual = agora.getFullYear();
     return visitas.filter(v => {
-      const d = parseData(v.dataCriacao || v.dataVisita);
+      const d = parseData(v.dataVisita || v.dataCriacao);
       return d && d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
     });
   }, [visitas]);
@@ -1164,7 +1164,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
 
             <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 180px",gap:14,marginBottom:16}} className="graficos-grid">
               <div className="card" style={{padding:16}}><GraficoLinha visitas={visitas}/></div>
-              <div className="card" style={{padding:16}}><Funil visitas={visitas}/></div>
+              <div className="card" style={{padding:16}}><Funil visitas={visitasMes}/></div>
               <div className="card" style={{padding:16,display:"flex",alignItems:"center",justifyContent:"center"}}><MedidorMeta receita={stats.receita}/></div>
             </div>
 
