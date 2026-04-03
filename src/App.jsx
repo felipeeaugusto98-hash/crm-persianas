@@ -367,6 +367,7 @@ export default function CRM() {
   const [view, setView] = useState("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [clienteInfo, setClienteInfo] = useState(null);
   const [form, setForm] = useState({...empty});
   const [formCliente, setFormCliente] = useState({...emptyCliente});
   const [selectedCliente, setSelectedCliente] = useState(null);
@@ -2675,14 +2676,66 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
               <button className="btn bg" onClick={()=>setView("lista")}>←</button>
               <div style={{flex:1}}>
-                <div style={{fontFamily:"Georgia,serif",fontSize:20}}>{selected.cliente}</div>
-                <div style={{fontSize:11,color:"#555"}}>{selected.telefone} · {selected.dataCriacao}</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:20,cursor:"pointer",textDecoration:"underline",textDecorationColor:"#c9a84c40",textUnderlineOffset:4}} onClick={()=>{
+                  const c = clientes.find(cl=>cl.telefone===selected.telefone||cl.nome?.toLowerCase()===selected.cliente?.toLowerCase());
+                  if(c) setClienteInfo(c);
+                  else showToast("Cliente não encontrado no cadastro. Cadastre primeiro.","aviso");
+                }}>{selected.cliente}</div>
+                <div style={{fontSize:11,color:"#555"}}>{selected.telefone} · {selected.dataCriacao} {clientes.find(cl=>cl.telefone===selected.telefone)?"· 👤 Cadastrado":""}</div>
               </div>
               <button className="btn bg" onClick={()=>{setForm({...selected});setView("novo")}}>✎</button>
               <button className="btn bd" onClick={()=>excluir(selected.id)}>✕</button>
             </div>
 
             {/* Score do Lead */}
+            {/* Modal dados do cliente */}
+            {clienteInfo && (
+              <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setClienteInfo(null)}>
+                <div style={{background:"#12121a",border:"1px solid #2a2a3a",borderRadius:16,padding:24,maxWidth:500,width:"100%",maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#c9a84c"}}>👤 Dados do Cliente</div>
+                    <button className="btn bg" onClick={()=>setClienteInfo(null)} style={{fontSize:16,padding:"4px 10px"}}>✕</button>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+                    {[
+                      {l:"NOME",v:clienteInfo.nome},
+                      {l:"TELEFONE",v:clienteInfo.telefone},
+                      {l:"E-MAIL",v:clienteInfo.email},
+                      {l:"ORIGEM",v:clienteInfo.origem,cor:"#c9a84c"},
+                      {l:"CPF",v:clienteInfo.cpf},
+                      {l:"DATA DE NASCIMENTO",v:clienteInfo.dataNascimento,icon:"🎂"},
+                      {l:"ENDEREÇO",v:clienteInfo.endereco},
+                      {l:"CEP",v:clienteInfo.cep},
+                      {l:"BAIRRO",v:clienteInfo.bairro},
+                      {l:"CIDADE",v:clienteInfo.cidade},
+                    ].map((campo,i)=>(
+                      <div key={i} style={campo.l==="ENDEREÇO"?{gridColumn:"span 2"}:{}}>
+                        <div style={{fontSize:9,color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:4}}>{campo.icon||""} {campo.l}</div>
+                        <div style={{fontSize:14,color:campo.cor||"#e8e4dc",fontWeight:500}}>{campo.v||"—"}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {clienteInfo.observacoes && (
+                    <div style={{marginTop:14,padding:12,background:"#1a1d27",borderRadius:8}}>
+                      <div style={{fontSize:9,color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:4}}>OBSERVAÇÕES</div>
+                      <div style={{fontSize:13,color:"#aaa"}}>{clienteInfo.observacoes}</div>
+                    </div>
+                  )}
+                  <div style={{display:"flex",gap:10,marginTop:16}}>
+                    {clienteInfo.telefone && (
+                      <a href={`https://wa.me/55${clienteInfo.telefone.replace(/\D/g,"")}`} target="_blank" rel="noreferrer" style={{textDecoration:"none",flex:1}}>
+                        <button className="btn bg" style={{width:"100%",color:"#25d366",borderColor:"#25d36640"}}>💬 WhatsApp</button>
+                      </a>
+                    )}
+                    <button className="btn bg" style={{flex:1}} onClick={()=>{
+                      const cli = clientes.find(c=>c.id===clienteInfo.id);
+                      if(cli){setSelected(null);setView("clientes");}
+                      setClienteInfo(null);
+                    }}>📋 Ver Cadastro Completo</button>
+                  </div>
+                </div>
+              </div>
+            )}
             {(()=>{
               // Se já fechou, score é 100. Se perdido, mostra diferente.
               if(selected.status==="fechado"){
@@ -2807,18 +2860,18 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 {selected.status==="fechado" && (()=>{
                   const prazo = calcPrazo(selected.dataVisita, selected.produtos);
                   const temCortina = (selected.produtos||"").toLowerCase().includes("cortina");
-                  return prazo ? (
+                  return (
                     <div style={{marginTop:10,padding:"10px 12px",borderRadius:8,background:"#c9a84c10",border:"1px solid #c9a84c30"}}>
                       <div style={{fontSize:10,color:"#c9a84c",marginBottom:4}}>🏭 PRAZO FÁBRICA</div>
-                      <div style={{fontSize:13,color:"#e8e4dc",fontWeight:600}}>{prazo}</div>
+                      <div style={{fontSize:13,color:"#e8e4dc",fontWeight:600}}>{prazo||"Definir ao criar pedido"}</div>
                       <div style={{fontSize:11,color:"#777",marginTop:2}}>{temCortina?"25 dias úteis — Cortina":"20 dias úteis — Persiana"}</div>
                       <button className="btn bp" style={{width:"100%",marginTop:10,fontSize:12,padding:"8px"}} onClick={()=>{
                         const prazoAuto = calcPrazo(hoje, selected.produtos||"");
-                        setFormPedido({...emptyPedido, cliente:selected.cliente, produtos:selected.produtos||"", dataEnvio:hoje, previsaoEntrega:prazoAuto||""});
+                        setFormPedido({...emptyPedido, cliente:selected.cliente, visita_id:selected.id, produtos:selected.produtos||"", dataEnvio:hoje, previsaoEntrega:prazoAuto||"", valorPedido:String(valorFinal(selected)||"")});
                         setView("fabrica");
                       }}>🏭 Criar Pedido na Fábrica</button>
                     </div>
-                  ) : null;
+                  );
                 })()}
                 {selected.status!=="orcamento_enviado" && selected.status!=="fechado" && (
                   <button className="btn bg" style={{width:"100%",marginTop:10,color:"#8b5cf6",borderColor:"#8b5cf640",fontSize:12}} onClick={async()=>{
