@@ -61,7 +61,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const META = 150000;
 
 const fmt = v => Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-const parseData = str => { if(!str) return null; const [d,m,a]=str.split("/"); if(!d||!m||!a) return null; return new Date(`${a}-${m}-${d}`); };
+const parseData = str => { if(!str) return null; const p=str.split("/"); if(p.length!==3) return null; const d=+p[0],m=+p[1],a=+p[2]; if(!d||!m||!a) return null; return new Date(a, m-1, d); };
 
 async function carregar() {
   try {

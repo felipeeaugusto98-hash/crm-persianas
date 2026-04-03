@@ -553,7 +553,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     if(!dataEnvio) return null;
     const [d,m,a] = dataEnvio.split("/");
     if(!d||!m||!a) return null;
-    const base = new Date(`${a}-${m}-${d}`);
+    const base = new Date(+a, +m-1, +d);
     const temCortina = (produtos||"").toLowerCase().includes("cortina");
     let diasUteis = temCortina ? 25 : 20;
     let count = 0; let dt = new Date(base);
@@ -582,7 +582,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
 
   useEffect(() => { if(sessao) carregar(); }, [sessao]);
 
-  const parseData = (str) => { if(!str) return null; const [d,m,a]=str.split("/"); if(!d||!m||!a) return null; return new Date(`${a}-${m}-${d}`); };
+  const parseData = (str) => { if(!str) return null; const p=str.split("/"); if(p.length!==3) return null; const d=+p[0],m=+p[1],a=+p[2]; if(!d||!m||!a) return null; return new Date(a, m-1, d); };
 
   // Filtrar visitas do mês atual
   const visitasMes = useMemo(() => {
@@ -708,7 +708,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
   const pedidosAlerta = useMemo(() => {
     const hj = new Date(); hj.setHours(0,0,0,0);
     const em3dias = new Date(hj); em3dias.setDate(em3dias.getDate()+3);
-    const parseData = (str) => { if(!str) return null; const [d,m,a]=str.split("/"); return new Date(`${a}-${m}-${d}`); };
+    const parseData = (str) => { if(!str) return null; const [d,m,a]=str.split("/"); return new Date(+a, +m-1, +d); };
     const emAndamento = pedidosFabrica.filter(p=>!["entregue","instalado"].includes(p.statusFabrica));
     const atrasados = emAndamento.filter(p=>{ const d=parseData(p.previsaoEntrega); return d && d<hj; });
     const proximos = emAndamento.filter(p=>{ const d=parseData(p.previsaoEntrega); return d && d>=hj && d<=em3dias; });
@@ -1290,7 +1290,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
               const parseData = (str) => {
                 if(!str) return null;
                 const [d,m,a] = str.split("/");
-                return new Date(`${a}-${m}-${d}`);
+                return new Date(+a, +m-1, +d);
               };
               const alertas = visitas.filter(v=>{
                 if(["fechado","perdido"].includes(v.status)) return false;
@@ -1435,7 +1435,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
         {/* FECHADOS */}
         {view==="fechados" && (()=>{
           const fechados = visitas.filter(v=>v.status==="fechado").sort((a,b)=>{
-            const parseD=(s)=>{if(!s)return 0;const[d,m,a]=s.split("/");return new Date(`${a}-${m}-${d}`).getTime();};
+            const parseD=(s)=>{if(!s)return 0;const[d,m,a]=s.split("/");return new Date(+a, +m-1, +d).getTime();};
             return parseD(b.dataVisita)-parseD(a.dataVisita);
           });
           const [searchFechado, setSearchFechado] = [search, setSearch];
@@ -2193,7 +2193,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
           const atrasados = emAndamento.filter(p=>{
             if(!p.previsaoEntrega) return false;
             const [d,m,a] = p.previsaoEntrega.split("/");
-            return new Date(`${a}-${m}-${d}`) < new Date();
+            return new Date(+a, +m-1, +d) < new Date();
           });
 
           const salvarPedido = async () => {
@@ -2315,7 +2315,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                       const idxReal = pedidosFabrica.indexOf(p);
                       const atrasado = p.previsaoEntrega && (()=>{
                         const [d,m,a]=p.previsaoEntrega.split("/");
-                        return new Date(`${a}-${m}-${d}`) < new Date();
+                        return new Date(+a, +m-1, +d) < new Date();
                       })();
                       return (
                         <div key={i} style={{padding:"14px 16px",borderBottom:"1px solid #1a1a24"}}>
