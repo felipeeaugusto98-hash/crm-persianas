@@ -87,11 +87,14 @@ async function carregar() {
     const ativas = visitasMes.filter(v => v.status !== "cancelado");
     const valorFinal = v => { const val=Number(v.valorOrcamento||0); return val-(val*Number(v.desconto||0))/100; };
     const fechados = ativas.filter(v => v.status === "fechado");
+    const PERSIANA_KW = ["persiana","rolo","double","triple","veneziana","plissada","colmeia","zebra","romana"];
+    const contarNegocio = v => { const txt=(v.produtos||"").toLowerCase(); const temCortina=txt.includes("cortina"); const temPersiana=PERSIANA_KW.some(k=>txt.includes(k)); return (temCortina&&temPersiana)?2:1; };
+    const negociosFechados = fechados.reduce((a,v)=>a+contarNegocio(v),0);
     const receita = fechados.reduce((a,v) => a + valorFinal(v), 0);
-    const conversao = ativas.length > 0 ? Math.round((fechados.length / ativas.length) * 100) : 0;
+    const conversao = ativas.length > 0 ? Math.round((negociosFechados / ativas.length) * 100) : 0;
     const visitasHoje = visitas.filter(v => v.dataVisita === hoje && v.status !== "cancelado").length;
     const pendentes = ativas.filter(v => v.status === "orcamento_enviado").length;
-    const ticketMedio = fechados.length > 0 ? receita / fechados.length : 0;
+    const ticketMedio = negociosFechados > 0 ? receita / negociosFechados : 0;
     const pctMeta = Math.min(receita / META, 1);
     const corMeta = pctMeta >= 1 ? "#10b981" : pctMeta >= 0.6 ? "#c9a84c" : "#ef4444";
 
@@ -117,7 +120,7 @@ async function carregar() {
         <div class="kpi wide" style="--cor:#10b981">
           <div class="label">Receita do Mês</div>
           <div class="valor">${fmt(receita)}</div>
-          <div class="sub">${fechados.length} negócio${fechados.length!==1?"s":""} fechado${fechados.length!==1?"s":""}</div>
+          <div class="sub">${negociosFechados} negócio${negociosFechados!==1?"s":""} fechado${negociosFechados!==1?"s":""}</div>
         </div>
         <div class="kpi" style="--cor:#3b82f6">
           <div class="label">Visitas Hoje</div>
@@ -163,7 +166,7 @@ async function carregar() {
             <div class="desc">Visitas</div>
           </div>
           <div class="item">
-            <div class="num" style="color:#c9a84c">${fechadosSemana.length}</div>
+            <div class="num" style="color:#c9a84c">${fechadosSemana.reduce((a,v)=>a+contarNegocio(v),0)}</div>
             <div class="desc">Fechadas</div>
           </div>
         </div>
