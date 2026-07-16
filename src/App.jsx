@@ -2895,6 +2895,32 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 <Field label="Produtos" value={selected.produtos}/>
                 <Field label="Medidas" value={selected.medidas}/>
               </div>
+              {selected.insights_ia && (
+  <div className="card" style={{padding:16,borderColor:"#c9a84c40"}}>
+    <div
+      style={{
+        fontSize:10,
+        color:"#c9a84c",
+        textTransform:"uppercase",
+        letterSpacing:"1px",
+        marginBottom:10
+      }}
+    >
+      🤖 Insights da IA
+    </div>
+
+    <div
+      style={{
+        fontSize:13,
+        color:"#ccc",
+        lineHeight:1.6,
+        whiteSpace:"pre-wrap"
+      }}
+    >
+      {selected.insights_ia}
+    </div>
+  </div>
+)}
               <div className="card" style={{padding:16}}>
                 <div style={{fontSize:10,color:"#8b5cf6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>📝 Anotações</div>
                 <div style={{display:"flex",gap:8,marginBottom:12}}>
