@@ -4,41 +4,11 @@ const SUPABASE_URL = "https://yoobeijjzzszltmhnsnr.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlvb2JlaWpqenpzemx0bWhuc25yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjg4NTMsImV4cCI6MjA4ODc0NDg1M30.ld-Nw95O56F9YMrDZob4mSKP6Je9vto7GaYvjOQ8jPo";
 const META_MENSAL = 150000;
 
-// Converte "" (vazio) em null antes de mandar pro Supabase.
-// Campos numéricos/data no Postgres rejeitam string vazia com erro 400
-// (ex: "invalid input syntax for type numeric/date: \"\""), o que travava
-// o cadastro de visita nova sempre que valorOrcamento/desconto/dataInstalacao/opId
-// ficavam em branco (situação normal pra visita recém-agendada).
-const blankToNull = (x) => (x === "" || x === undefined ? null : x);
-
-const visitaParaPayload = (v) => ({
-  cliente: v.cliente, telefone: v.telefone, endereco: v.endereco, email: v.email,
-  data_visita: blankToNull(v.dataVisita), hora_visita: blankToNull(v.horaVisita),
-  op_id: blankToNull(v.opId), ambiente: v.ambiente, motivo_compra: v.motivoCompra,
-  urgencia: v.urgencia, produtos: v.produtos, medidas: v.medidas, observacoes: v.observacoes,
-  valor_orcamento: blankToNull(v.valorOrcamento), desconto: blankToNull(v.desconto),
-  data_instalacao: blankToNull(v.dataInstalacao), link_orcamento: v.linkOrcamento,
-  status: v.status, historico: v.historico, data_criacao: v.dataCriacao
-});
-
-// Lê o erro real que o Supabase devolveu, em vez de deixar a função
-// falhar silenciosamente ou estourar um erro genérico sem detalhe.
-const lancarSeErro = async (res, acaoLabel) => {
-  if (res.ok) return;
-  let detalhe = `HTTP ${res.status}`;
-  try {
-    const err = await res.json();
-    detalhe = err.message || err.hint || err.details || detalhe;
-  } catch {}
-  throw new Error(`${acaoLabel}: ${detalhe}`);
-};
-
 const db = {
   async get() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/visitas?order=created_at.desc`, {
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     });
-    await lancarSeErro(res, "Erro ao carregar visitas");
     const data = await res.json();
     return data.map(v => ({
       ...v, historico: v.historico || [],
@@ -52,18 +22,16 @@ const db = {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/visitas`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify(visitaParaPayload(v))
+      body: JSON.stringify({ cliente: v.cliente, telefone: v.telefone, endereco: v.endereco, email: v.email, data_visita: v.dataVisita, hora_visita: v.horaVisita, op_id: v.opId, ambiente: v.ambiente, motivo_compra: v.motivoCompra, urgencia: v.urgencia, produtos: v.produtos, medidas: v.medidas, observacoes: v.observacoes, valor_orcamento: v.valorOrcamento, desconto: v.desconto, data_instalacao: v.dataInstalacao, link_orcamento: v.linkOrcamento, status: v.status, historico: v.historico, data_criacao: v.dataCriacao })
     });
-    await lancarSeErro(res, "Erro ao cadastrar visita");
     return (await res.json())[0];
   },
   async update(id, v) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/visitas?id=eq.${id}`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/visitas?id=eq.${id}`, {
       method: "PATCH",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify(visitaParaPayload(v))
+      body: JSON.stringify({ cliente: v.cliente, telefone: v.telefone, endereco: v.endereco, email: v.email, data_visita: v.dataVisita, hora_visita: v.horaVisita, op_id: v.opId, ambiente: v.ambiente, motivo_compra: v.motivoCompra, urgencia: v.urgencia, produtos: v.produtos, medidas: v.medidas, observacoes: v.observacoes, valor_orcamento: v.valorOrcamento, desconto: v.desconto, data_instalacao: v.dataInstalacao, link_orcamento: v.linkOrcamento, status: v.status, historico: v.historico, data_criacao: v.dataCriacao })
     });
-    await lancarSeErro(res, "Erro ao atualizar visita");
   },
   async delete(id) {
     await fetch(`${SUPABASE_URL}/rest/v1/visitas?id=eq.${id}`, {
@@ -316,13 +284,24 @@ function GraficoLinha({ visitas }) {
 
 function Funil({ visitas }) {
   const ativas = visitas.filter(v=>v.status!=="cancelado");
+  const PERSIANA_KW = ["persiana","rolo","double","triple","veneziana","plissada","colmeia","zebra","romana"];
+  const contarNeg = (v) => {
+    const txt=(v.produtos||"").toLowerCase();
+    const temCortina=txt.includes("cortina");
+    const temPersiana=PERSIANA_KW.some(k=>txt.includes(k));
+    return (temCortina&&temPersiana)?2:1;
+  };
   const etapas = [
     {label:"Leads",key:null,color:"#3b82f6"},
     {label:"Visitado",key:"visitado",color:"#f59e0b"},
     {label:"Orçamento",key:"orcamento_enviado",color:"#8b5cf6"},
     {label:"Fechado",key:"fechado",color:"#10b981"},
   ];
-  const counts = etapas.map(e => e.key===null ? ativas.length : ativas.filter(v=>v.status===e.key).length);
+  const counts = etapas.map(e => {
+    if(e.key===null) return ativas.length;
+    if(e.key==="fechado") return ativas.filter(v=>v.status==="fechado").reduce((a,v)=>a+contarNeg(v),0);
+    return ativas.filter(v=>v.status===e.key).length;
+  });
   const max = Math.max(counts[0],1);
   return (
     <div>
@@ -453,7 +432,7 @@ export default function CRM() {
 
   // Toast de confirmação
   const [toast, setToast] = useState(null);
-  const showToast = (msg, tipo="sucesso") => { setToast({msg,tipo}); setTimeout(()=>setToast(null), tipo==="erro"?7000:3000); };
+  const showToast = (msg, tipo="sucesso") => { setToast({msg,tipo}); setTimeout(()=>setToast(null), 3000); };
 
   // Buscas para seções migradas
   const [searchOcorrencia, setSearchOcorrencia] = useState("");
@@ -596,6 +575,15 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     return dt.toLocaleDateString("pt-BR");
   };
 
+  // Conta 2 negócios quando o fechamento tem cortina E persiana juntos
+  const PERSIANA_KEYWORDS = ["persiana","rolo","double","triple","veneziana","plissada","colmeia","zebra","romana"];
+  const contarNegocio = (v) => {
+    const txt = (v.produtos||"").toLowerCase();
+    const temCortina = txt.includes("cortina");
+    const temPersiana = PERSIANA_KEYWORDS.some(k=>txt.includes(k));
+    return (temCortina && temPersiana) ? 2 : 1;
+  };
+
   const carregar = async () => {
     setLoading(true);
     try {
@@ -652,14 +640,14 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       total: ativas.length,
       totalGeral: visitas.filter(v=>v.status!=="cancelado").length,
       cancelados: visitasMes.filter(v=>v.status==="cancelado").length,
-      fechados: fechados.length,
+      fechados: fechados.reduce((a,v)=>a+contarNegocio(v),0),
       pendentes: ativas.filter(v=>v.status==="orcamento_enviado").length,
       hoje: visitas.filter(v=>v.dataVisita===hoje&&v.status!=="cancelado").length,
       receita: fechados.reduce((a,v)=>a+valorFinal(v),0),
-      conversao: ativas.length>0?((fechados.length/ativas.length)*100).toFixed(0):0,
+      conversao: ativas.length>0?((fechados.reduce((a,v)=>a+contarNegocio(v),0)/ativas.length)*100).toFixed(0):0,
       semana: {
         receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0),
-        vendas: fechadosSemana.length,
+        vendas: fechadosSemana.reduce((a,v)=>a+contarNegocio(v),0),
         visitas: ativasSemana.length,
         conversao: ativasSemana.length>0?Math.round(fechadosSemana.length/ativasSemana.length*100):0,
         inicio: inicioSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
@@ -706,7 +694,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     const fechados = ativas.filter(v => v.status === "fechado");
     const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0);
     const totalVisitas = ativas.length;
-    const conversao = totalVisitas > 0 ? (fechados.length / totalVisitas) * 100 : 0;
+    const negociosFechados = fechados.reduce((a,v)=>a+contarNegocio(v),0);
+    const conversao = totalVisitas > 0 ? (negociosFechados / totalVisitas) * 100 : 0;
 
     let pct = 10;
 
@@ -858,7 +847,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       else await db.insert({...form,historico,dataCriacao:hoje});
       await carregar(); setForm({...empty}); setView("lista");
       showToast("Visita salva com sucesso!");
-    } catch(e) { console.error(e); showToast(e.message || "Erro ao salvar visita","erro"); }
+    } catch(e) { console.error(e); showToast("Erro ao salvar visita","erro"); }
     setSaving(false);
   };
 
@@ -951,7 +940,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
         }
         @keyframes toastIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
         @keyframes toastOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
-        .toast{position:fixed;top:20px;right:20px;left:20px;z-index:9999;padding:14px 22px;border-radius:10px;font-size:13px;font-weight:500;animation:toastIn .3s ease;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;align-items:flex-start;gap:10px;max-width:420px;margin-left:auto;word-break:break-word}
+        .toast{position:fixed;top:20px;right:20px;z-index:9999;padding:14px 22px;border-radius:10px;font-size:13px;font-weight:500;animation:toastIn .3s ease;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;align-items:center;gap:10px}
         .toast.saindo{animation:toastOut .3s ease forwards}
         .toast-sucesso{background:#10b98125;border:1px solid #10b98150;color:#10b981}
         .toast-erro{background:#ef444425;border:1px solid #ef444450;color:#ef4444}
