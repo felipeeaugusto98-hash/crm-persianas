@@ -245,8 +245,13 @@ function GraficoLinha({ visitas, pedidosFabrica }) {
       const key = `${parts[1]}/${parts[2]}`;
       if (map[key] && v.status === 'fechado') map[key].receita += valorFinal(v);
     });
-    // Pedidos lançados direto na fábrica sem visita (indicação) também entram
-    (pedidosFabrica||[]).filter(p=>!p.visita_id).forEach(p => {
+    // Pedidos lançados direto na fábrica sem visita (indicação) também entram — exclui duplicados por cliente
+    const clientesComVisitaFechada = new Set(visitas.filter(v=>v.status==="fechado").map(v=>(v.cliente||"").trim().toLowerCase()));
+    (pedidosFabrica||[]).filter(p=>{
+      if(p.visita_id) return false;
+      const clienteNorm = (p.cliente||"").trim().toLowerCase();
+      return !(clienteNorm && clientesComVisitaFechada.has(clienteNorm));
+    }).forEach(p => {
       if (!p.dataEnvio) return;
       const parts = p.dataEnvio.split('/');
       if (parts.length < 3) return;
@@ -647,8 +652,12 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     });
 
     // Pedidos lançados direto em Pedidos Fábrica sem visita (indicação) — contam na receita/conversão
+    // Exclui pedidos cujo cliente já tem visita fechada correspondente (evita contar 2x)
     const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
       if(p.visita_id) return false;
+      const clienteNorm = (p.cliente||"").trim().toLowerCase();
+      const temVisitaFechada = clienteNorm && visitas.some(v=>v.status==="fechado" && (v.cliente||"").trim().toLowerCase()===clienteNorm);
+      if(temVisitaFechada) return false;
       const d = parseData(p.dataEnvio);
       return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
     });
@@ -720,6 +729,9 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     const mesAtual = agora.getMonth(), anoAtual = agora.getFullYear();
     const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
       if(p.visita_id) return false;
+      const clienteNorm = (p.cliente||"").trim().toLowerCase();
+      const temVisitaFechada = clienteNorm && visitas.some(v=>v.status==="fechado" && (v.cliente||"").trim().toLowerCase()===clienteNorm);
+      if(temVisitaFechada) return false;
       const d = parseData(p.dataEnvio);
       return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
     });
