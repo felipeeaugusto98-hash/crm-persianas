@@ -97,9 +97,12 @@ async function carregar() {
     const PERSIANA_KW = ["persiana","rolo","double","triple","veneziana","plissada","colmeia","zebra","romana"];
     const contarNegocio = v => { const txt=(v.produtos||"").toLowerCase(); const temCortina=txt.includes("cortina"); const temPersiana=PERSIANA_KW.some(k=>txt.includes(k)); return (temCortina&&temPersiana)?2:1; };
 
-    // Pedidos lançados direto na fábrica sem visita (indicação)
+    // Pedidos lançados direto na fábrica sem visita (indicação) — exclui duplicados por cliente
+    const clientesComVisitaFechada = new Set(visitas.filter(v=>v.status==="fechado").map(v=>(v.cliente||"").trim().toLowerCase()));
     const pedidosIndicacaoMes = pedidosFabrica.filter(p => {
       if(p.visitaId) return false;
+      const clienteNorm = (p.cliente||"").trim().toLowerCase();
+      if(clienteNorm && clientesComVisitaFechada.has(clienteNorm)) return false;
       const d = parseData(p.dataEnvio);
       return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
     });
