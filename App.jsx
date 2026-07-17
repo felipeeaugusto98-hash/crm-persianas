@@ -228,7 +228,7 @@ function extrairEmail(texto) {
 
 const hoje = new Date().toLocaleDateString("pt-BR");
 
-function GraficoLinha({ visitas }) {
+function GraficoLinha({ visitas, pedidosFabrica }) {
   const meses = useMemo(() => {
     const map = {};
     const agora = new Date();
@@ -245,8 +245,16 @@ function GraficoLinha({ visitas }) {
       const key = `${parts[1]}/${parts[2]}`;
       if (map[key] && v.status === 'fechado') map[key].receita += valorFinal(v);
     });
+    // Pedidos lançados direto na fábrica sem visita (indicação) também entram
+    (pedidosFabrica||[]).filter(p=>!p.visita_id).forEach(p => {
+      if (!p.dataEnvio) return;
+      const parts = p.dataEnvio.split('/');
+      if (parts.length < 3) return;
+      const key = `${parts[1]}/${parts[2]}`;
+      if (map[key]) map[key].receita += Number(p.valorPedido||0);
+    });
     return Object.values(map);
-  }, [visitas]);
+  }, [visitas, pedidosFabrica]);
 
   const W = 400, H = 140, PAD = 30;
   const maxR = Math.max(...meses.map(m => m.receita), META_MENSAL);
@@ -282,7 +290,7 @@ function GraficoLinha({ visitas }) {
   );
 }
 
-function Funil({ visitas }) {
+function Funil({ visitas, pedidosIndicacaoMes }) {
   const ativas = visitas.filter(v=>v.status!=="cancelado");
   const PERSIANA_KW = ["persiana","rolo","double","triple","veneziana","plissada","colmeia","zebra","romana"];
   const contarNeg = (v) => {
@@ -299,7 +307,7 @@ function Funil({ visitas }) {
   ];
   const counts = etapas.map(e => {
     if(e.key===null) return ativas.length;
-    if(e.key==="fechado") return ativas.filter(v=>v.status==="fechado").reduce((a,v)=>a+contarNeg(v),0);
+    if(e.key==="fechado") return ativas.filter(v=>v.status==="fechado").reduce((a,v)=>a+contarNeg(v),0) + (pedidosIndicacaoMes||0);
     return ativas.filter(v=>v.status===e.key).length;
   });
   const max = Math.max(counts[0],1);
@@ -619,6 +627,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     const ativas = visitasMes.filter(v=>v.status!=="cancelado");
     const fechados = ativas.filter(v=>v.status==="fechado");
     const agora = new Date();
+    const mesAtual = agora.getMonth();
+    const anoAtual = agora.getFullYear();
     const diaSemana = agora.getDay();
     const inicioSemana = new Date(agora);
     inicioSemana.setDate(agora.getDate() - (diaSemana===0?6:diaSemana-1));
@@ -636,25 +646,39 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       return d && d>=inicioSemana && d<=fimSemana;
     });
 
+    // Pedidos lançados direto em Pedidos Fábrica sem visita (indicação) — contam na receita/conversão
+    const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
+      if(p.visita_id) return false;
+      const d = parseData(p.dataEnvio);
+      return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
+    });
+    const pedidosIndicacaoSemana = pedidosIndicacaoMes.filter(p=>{
+      const d = parseData(p.dataEnvio);
+      return d && d>=inicioSemana && d<=fimSemana;
+    });
+    const receitaIndicacao = pedidosIndicacaoMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+    const receitaIndicacaoSemana = pedidosIndicacaoSemana.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+
     return {
       total: ativas.length,
       totalGeral: visitas.filter(v=>v.status!=="cancelado").length,
       cancelados: visitasMes.filter(v=>v.status==="cancelado").length,
-      fechados: fechados.reduce((a,v)=>a+contarNegocio(v),0),
+      fechados: fechados.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoMes.length,
       pendentes: ativas.filter(v=>v.status==="orcamento_enviado").length,
       hoje: visitas.filter(v=>v.dataVisita===hoje&&v.status!=="cancelado").length,
-      receita: fechados.reduce((a,v)=>a+valorFinal(v),0),
-      conversao: ativas.length>0?((fechados.reduce((a,v)=>a+contarNegocio(v),0)/ativas.length)*100).toFixed(0):0,
+      receita: fechados.reduce((a,v)=>a+valorFinal(v),0) + receitaIndicacao,
+      pedidosIndicacaoMes: pedidosIndicacaoMes.length,
+      conversao: ativas.length>0?(((fechados.reduce((a,v)=>a+contarNegocio(v),0)+pedidosIndicacaoMes.length)/ativas.length)*100).toFixed(0):0,
       semana: {
-        receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0),
-        vendas: fechadosSemana.reduce((a,v)=>a+contarNegocio(v),0),
+        receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0) + receitaIndicacaoSemana,
+        vendas: fechadosSemana.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoSemana.length,
         visitas: ativasSemana.length,
-        conversao: ativasSemana.length>0?Math.round(fechadosSemana.length/ativasSemana.length*100):0,
+        conversao: ativasSemana.length>0?Math.round((fechadosSemana.length+pedidosIndicacaoSemana.length)/ativasSemana.length*100):0,
         inicio: inicioSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
         fim: fimSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
       }
     };
-  }, [visitas, visitasMes]);
+  }, [visitas, visitasMes, pedidosFabrica]);
 
   const rankingProdutos = useMemo(()=>{
     const mapa = {};
@@ -692,9 +716,16 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
   const comissao = useMemo(() => {
     const ativas = visitasMes.filter(v=>v.status!=="cancelado");
     const fechados = ativas.filter(v => v.status === "fechado");
-    const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0);
+    const agora = new Date();
+    const mesAtual = agora.getMonth(), anoAtual = agora.getFullYear();
+    const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
+      if(p.visita_id) return false;
+      const d = parseData(p.dataEnvio);
+      return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
+    });
+    const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0) + pedidosIndicacaoMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
     const totalVisitas = ativas.length;
-    const negociosFechados = fechados.reduce((a,v)=>a+contarNegocio(v),0);
+    const negociosFechados = fechados.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoMes.length;
     const conversao = totalVisitas > 0 ? (negociosFechados / totalVisitas) * 100 : 0;
 
     let pct = 10;
@@ -723,7 +754,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       proximaFaixaVenda: totalVendas < 40000 ? 40000 : totalVendas < 60000 ? 60000 : totalVendas < 80000 ? 80000 : totalVendas < 100000 ? 100000 : totalVendas < 120000 ? 120000 : null,
       proximaFaixaConv: conversao < 50 ? 50 : conversao < 60 ? 60 : conversao < 70 ? 70 : conversao < 80 ? 80 : conversao < 90 ? 90 : null,
     };
-  }, [visitasMes]);
+  }, [visitasMes, pedidosFabrica]);
 
   // Alertas de pedidos perto do prazo / atrasados
   const pedidosAlerta = useMemo(() => {
@@ -1196,8 +1227,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
             </div>
 
             <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 180px",gap:14,marginBottom:16}} className="graficos-grid">
-              <div className="card" style={{padding:16}}><GraficoLinha visitas={visitas}/></div>
-              <div className="card" style={{padding:16}}><Funil visitas={visitasMes}/></div>
+              <div className="card" style={{padding:16}}><GraficoLinha visitas={visitas} pedidosFabrica={pedidosFabrica}/></div>
+              <div className="card" style={{padding:16}}><Funil visitas={visitasMes} pedidosIndicacaoMes={stats.pedidosIndicacaoMes}/></div>
               <div className="card" style={{padding:16,display:"flex",alignItems:"center",justifyContent:"center"}}><MedidorMeta receita={stats.receita}/></div>
             </div>
 
