@@ -228,7 +228,7 @@ function extrairEmail(texto) {
 
 const hoje = new Date().toLocaleDateString("pt-BR");
 
-function GraficoLinha({ visitas }) {
+function GraficoLinha({ visitas, pedidosFabrica }) {
   const meses = useMemo(() => {
     const map = {};
     const agora = new Date();
@@ -245,8 +245,16 @@ function GraficoLinha({ visitas }) {
       const key = `${parts[1]}/${parts[2]}`;
       if (map[key] && v.status === 'fechado') map[key].receita += valorFinal(v);
     });
+    // Pedidos lançados direto na fábrica sem visita (indicação) também entram
+    (pedidosFabrica||[]).filter(p=>!p.visita_id).forEach(p => {
+      if (!p.dataEnvio) return;
+      const parts = p.dataEnvio.split('/');
+      if (parts.length < 3) return;
+      const key = `${parts[1]}/${parts[2]}`;
+      if (map[key]) map[key].receita += Number(p.valorPedido||0);
+    });
     return Object.values(map);
-  }, [visitas]);
+  }, [visitas, pedidosFabrica]);
 
   const W = 400, H = 140, PAD = 30;
   const maxR = Math.max(...meses.map(m => m.receita), META_MENSAL);
@@ -282,15 +290,26 @@ function GraficoLinha({ visitas }) {
   );
 }
 
-function Funil({ visitas }) {
+function Funil({ visitas, pedidosIndicacaoMes }) {
   const ativas = visitas.filter(v=>v.status!=="cancelado");
+  const PERSIANA_KW = ["persiana","rolo","double","triple","veneziana","plissada","colmeia","zebra","romana"];
+  const contarNeg = (v) => {
+    const txt=(v.produtos||"").toLowerCase();
+    const temCortina=txt.includes("cortina");
+    const temPersiana=PERSIANA_KW.some(k=>txt.includes(k));
+    return (temCortina&&temPersiana)?2:1;
+  };
   const etapas = [
     {label:"Leads",key:null,color:"#3b82f6"},
     {label:"Visitado",key:"visitado",color:"#f59e0b"},
     {label:"Orçamento",key:"orcamento_enviado",color:"#8b5cf6"},
     {label:"Fechado",key:"fechado",color:"#10b981"},
   ];
-  const counts = etapas.map(e => e.key===null ? ativas.length : ativas.filter(v=>v.status===e.key).length);
+  const counts = etapas.map(e => {
+    if(e.key===null) return ativas.length;
+    if(e.key==="fechado") return ativas.filter(v=>v.status==="fechado").reduce((a,v)=>a+contarNeg(v),0) + (pedidosIndicacaoMes||0);
+    return ativas.filter(v=>v.status===e.key).length;
+  });
   const max = Math.max(counts[0],1);
   return (
     <div>
@@ -564,6 +583,15 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     return dt.toLocaleDateString("pt-BR");
   };
 
+  // Conta 2 negócios quando o fechamento tem cortina E persiana juntos
+  const PERSIANA_KEYWORDS = ["persiana","rolo","double","triple","veneziana","plissada","colmeia","zebra","romana"];
+  const contarNegocio = (v) => {
+    const txt = (v.produtos||"").toLowerCase();
+    const temCortina = txt.includes("cortina");
+    const temPersiana = PERSIANA_KEYWORDS.some(k=>txt.includes(k));
+    return (temCortina && temPersiana) ? 2 : 1;
+  };
+
   const carregar = async () => {
     setLoading(true);
     try {
@@ -599,6 +627,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     const ativas = visitasMes.filter(v=>v.status!=="cancelado");
     const fechados = ativas.filter(v=>v.status==="fechado");
     const agora = new Date();
+    const mesAtual = agora.getMonth();
+    const anoAtual = agora.getFullYear();
     const diaSemana = agora.getDay();
     const inicioSemana = new Date(agora);
     inicioSemana.setDate(agora.getDate() - (diaSemana===0?6:diaSemana-1));
@@ -616,25 +646,39 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       return d && d>=inicioSemana && d<=fimSemana;
     });
 
+    // Pedidos lançados direto em Pedidos Fábrica sem visita (indicação) — contam na receita/conversão
+    const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
+      if(p.visita_id) return false;
+      const d = parseData(p.dataEnvio);
+      return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
+    });
+    const pedidosIndicacaoSemana = pedidosIndicacaoMes.filter(p=>{
+      const d = parseData(p.dataEnvio);
+      return d && d>=inicioSemana && d<=fimSemana;
+    });
+    const receitaIndicacao = pedidosIndicacaoMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+    const receitaIndicacaoSemana = pedidosIndicacaoSemana.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+
     return {
       total: ativas.length,
       totalGeral: visitas.filter(v=>v.status!=="cancelado").length,
       cancelados: visitasMes.filter(v=>v.status==="cancelado").length,
-      fechados: fechados.length,
+      fechados: fechados.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoMes.length,
       pendentes: ativas.filter(v=>v.status==="orcamento_enviado").length,
       hoje: visitas.filter(v=>v.dataVisita===hoje&&v.status!=="cancelado").length,
-      receita: fechados.reduce((a,v)=>a+valorFinal(v),0),
-      conversao: ativas.length>0?((fechados.length/ativas.length)*100).toFixed(0):0,
+      receita: fechados.reduce((a,v)=>a+valorFinal(v),0) + receitaIndicacao,
+      pedidosIndicacaoMes: pedidosIndicacaoMes.length,
+      conversao: ativas.length>0?(((fechados.reduce((a,v)=>a+contarNegocio(v),0)+pedidosIndicacaoMes.length)/ativas.length)*100).toFixed(0):0,
       semana: {
-        receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0),
-        vendas: fechadosSemana.length,
+        receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0) + receitaIndicacaoSemana,
+        vendas: fechadosSemana.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoSemana.length,
         visitas: ativasSemana.length,
-        conversao: ativasSemana.length>0?Math.round(fechadosSemana.length/ativasSemana.length*100):0,
+        conversao: ativasSemana.length>0?Math.round((fechadosSemana.length+pedidosIndicacaoSemana.length)/ativasSemana.length*100):0,
         inicio: inicioSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
         fim: fimSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
       }
     };
-  }, [visitas, visitasMes]);
+  }, [visitas, visitasMes, pedidosFabrica]);
 
   const rankingProdutos = useMemo(()=>{
     const mapa = {};
@@ -672,9 +716,17 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
   const comissao = useMemo(() => {
     const ativas = visitasMes.filter(v=>v.status!=="cancelado");
     const fechados = ativas.filter(v => v.status === "fechado");
-    const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0);
+    const agora = new Date();
+    const mesAtual = agora.getMonth(), anoAtual = agora.getFullYear();
+    const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
+      if(p.visita_id) return false;
+      const d = parseData(p.dataEnvio);
+      return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
+    });
+    const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0) + pedidosIndicacaoMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
     const totalVisitas = ativas.length;
-    const conversao = totalVisitas > 0 ? (fechados.length / totalVisitas) * 100 : 0;
+    const negociosFechados = fechados.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoMes.length;
+    const conversao = totalVisitas > 0 ? (negociosFechados / totalVisitas) * 100 : 0;
 
     let pct = 10;
 
@@ -702,7 +754,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       proximaFaixaVenda: totalVendas < 40000 ? 40000 : totalVendas < 60000 ? 60000 : totalVendas < 80000 ? 80000 : totalVendas < 100000 ? 100000 : totalVendas < 120000 ? 120000 : null,
       proximaFaixaConv: conversao < 50 ? 50 : conversao < 60 ? 60 : conversao < 70 ? 70 : conversao < 80 ? 80 : conversao < 90 ? 90 : null,
     };
-  }, [visitasMes]);
+  }, [visitasMes, pedidosFabrica]);
 
   // Alertas de pedidos perto do prazo / atrasados
   const pedidosAlerta = useMemo(() => {
@@ -954,17 +1006,29 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
                 {visitasHoje.map(v=>(
-                  <div key={v.id} style={{padding:"12px 14px",borderRadius:10,background:"#0d0d15",border:"1px solid #c9a84c30",cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe");setShowLembrete(false)}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div>
-                        <div style={{fontSize:14,fontWeight:600,color:"#e8e4dc"}}>{v.cliente}</div>
-                        <div style={{fontSize:11,color:"#555",marginTop:2}}>🕐 {v.horaVisita} · 📍 {v.endereco?.slice(0,35)}</div>
-                        <div style={{fontSize:11,color:"#777",marginTop:1}}>🏠 {v.ambiente} · {v.produtos||"—"}</div>
+                  <div key={v.id} style={{padding:"12px 14px",borderRadius:10,background:"#0d0d15",border:"1px solid #c9a84c30",display:"flex",alignItems:"center",gap:12}}>
+                    <input type="checkbox" checked={false} onChange={async e=>{
+                      e.stopPropagation();
+                      const atualizado = {...v, status:"visitado", historico:[...(v.historico||[]),{data:hoje,texto:"Status: Visita Realizada (marcada pelo lembrete)"}]};
+                      await db.update(v.id, atualizado);
+                      setVisitas(prev=>prev.map(x=>x.id===v.id?atualizado:x));
+                      showToast(`Visita de ${v.cliente} marcada como realizada!`);
+                    }} style={{width:20,height:20,accentColor:"#10b981",cursor:"pointer",flexShrink:0}}/>
+                    <div style={{flex:1,cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe");setShowLembrete(false)}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:600,color:"#e8e4dc"}}>{v.cliente}</div>
+                          <div style={{fontSize:11,color:"#555",marginTop:2}}>🕐 {v.horaVisita} · 📍 {v.endereco?.slice(0,35)}</div>
+                          <div style={{fontSize:11,color:"#777",marginTop:1}}>🏠 {v.ambiente} · {v.produtos||"—"}</div>
+                        </div>
+                        <div style={{fontSize:11,color:"#c9a84c",fontWeight:700}}>{v.horaVisita}</div>
                       </div>
-                      <div style={{fontSize:11,color:"#c9a84c",fontWeight:700}}>{v.horaVisita}</div>
                     </div>
                   </div>
                 ))}
+                {visitasHoje.length===0 && (
+                  <div style={{textAlign:"center",padding:20,color:"#555",fontSize:13}}>✅ Todas as visitas de hoje já foram marcadas!</div>
+                )}
               </div>
               <button className="btn bp" style={{width:"100%",padding:12}} onClick={()=>setShowLembrete(false)}>Entendido, vamos lá! 💪</button>
             </div>
@@ -1163,8 +1227,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
             </div>
 
             <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 180px",gap:14,marginBottom:16}} className="graficos-grid">
-              <div className="card" style={{padding:16}}><GraficoLinha visitas={visitas}/></div>
-              <div className="card" style={{padding:16}}><Funil visitas={visitasMes}/></div>
+              <div className="card" style={{padding:16}}><GraficoLinha visitas={visitas} pedidosFabrica={pedidosFabrica}/></div>
+              <div className="card" style={{padding:16}}><Funil visitas={visitasMes} pedidosIndicacaoMes={stats.pedidosIndicacaoMes}/></div>
               <div className="card" style={{padding:16,display:"flex",alignItems:"center",justifyContent:"center"}}><MedidorMeta receita={stats.receita}/></div>
             </div>
 
@@ -2895,32 +2959,6 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 <Field label="Produtos" value={selected.produtos}/>
                 <Field label="Medidas" value={selected.medidas}/>
               </div>
-              {selected.insights_ia && (
-  <div className="card" style={{padding:16,borderColor:"#c9a84c40"}}>
-    <div
-      style={{
-        fontSize:10,
-        color:"#c9a84c",
-        textTransform:"uppercase",
-        letterSpacing:"1px",
-        marginBottom:10
-      }}
-    >
-      🤖 Insights da IA
-    </div>
-
-    <div
-      style={{
-        fontSize:13,
-        color:"#ccc",
-        lineHeight:1.6,
-        whiteSpace:"pre-wrap"
-      }}
-    >
-      {selected.insights_ia}
-    </div>
-  </div>
-)}
               <div className="card" style={{padding:16}}>
                 <div style={{fontSize:10,color:"#8b5cf6",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>📝 Anotações</div>
                 <div style={{display:"flex",gap:8,marginBottom:12}}>
