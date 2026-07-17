@@ -975,17 +975,29 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
                 {visitasHoje.map(v=>(
-                  <div key={v.id} style={{padding:"12px 14px",borderRadius:10,background:"#0d0d15",border:"1px solid #c9a84c30",cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe");setShowLembrete(false)}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div>
-                        <div style={{fontSize:14,fontWeight:600,color:"#e8e4dc"}}>{v.cliente}</div>
-                        <div style={{fontSize:11,color:"#555",marginTop:2}}>🕐 {v.horaVisita} · 📍 {v.endereco?.slice(0,35)}</div>
-                        <div style={{fontSize:11,color:"#777",marginTop:1}}>🏠 {v.ambiente} · {v.produtos||"—"}</div>
+                  <div key={v.id} style={{padding:"12px 14px",borderRadius:10,background:"#0d0d15",border:"1px solid #c9a84c30",display:"flex",alignItems:"center",gap:12}}>
+                    <input type="checkbox" checked={false} onChange={async e=>{
+                      e.stopPropagation();
+                      const atualizado = {...v, status:"visitado", historico:[...(v.historico||[]),{data:hoje,texto:"Status: Visita Realizada (marcada pelo lembrete)"}]};
+                      await db.update(v.id, atualizado);
+                      setVisitas(prev=>prev.map(x=>x.id===v.id?atualizado:x));
+                      showToast(`Visita de ${v.cliente} marcada como realizada!`);
+                    }} style={{width:20,height:20,accentColor:"#10b981",cursor:"pointer",flexShrink:0}}/>
+                    <div style={{flex:1,cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe");setShowLembrete(false)}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:600,color:"#e8e4dc"}}>{v.cliente}</div>
+                          <div style={{fontSize:11,color:"#555",marginTop:2}}>🕐 {v.horaVisita} · 📍 {v.endereco?.slice(0,35)}</div>
+                          <div style={{fontSize:11,color:"#777",marginTop:1}}>🏠 {v.ambiente} · {v.produtos||"—"}</div>
+                        </div>
+                        <div style={{fontSize:11,color:"#c9a84c",fontWeight:700}}>{v.horaVisita}</div>
                       </div>
-                      <div style={{fontSize:11,color:"#c9a84c",fontWeight:700}}>{v.horaVisita}</div>
                     </div>
                   </div>
                 ))}
+                {visitasHoje.length===0 && (
+                  <div style={{textAlign:"center",padding:20,color:"#555",fontSize:13}}>✅ Todas as visitas de hoje já foram marcadas!</div>
+                )}
               </div>
               <button className="btn bp" style={{width:"100%",padding:12}} onClick={()=>setShowLembrete(false)}>Entendido, vamos lá! 💪</button>
             </div>
