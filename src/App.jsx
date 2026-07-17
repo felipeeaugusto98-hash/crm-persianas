@@ -209,6 +209,7 @@ const fmt = (v) => Number(v||0).toLocaleString("pt-BR",{style:"currency",currenc
 const brToIso = (br) => { if(!br) return ""; const p=br.split("/"); return p.length===3?`${p[2]}-${p[1]}-${p[0]}`:""; };
 const isoToBr = (iso) => { if(!iso) return ""; const p=iso.split("-"); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:""; };
 const valorFinal = (d) => { const v=Number(d.valorOrcamento||0); return v-(v*Number(d.desconto||0))/100; };
+const normNome = (s) => (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase().replace(/\s+/g," ");
 
 function extrairEmail(texto) {
   const r = { cliente:"", telefone:"", endereco:"", ambiente:"", motivoCompra:"", urgencia:"", produtos:"", medidas:"", dataVisita:"", horaVisita:"", observacoes:"" };
@@ -246,10 +247,10 @@ function GraficoLinha({ visitas, pedidosFabrica }) {
       if (map[key] && v.status === 'fechado') map[key].receita += valorFinal(v);
     });
     // Pedidos lançados direto na fábrica sem visita (indicação) também entram — exclui duplicados por cliente
-    const clientesComVisitaFechada = new Set(visitas.filter(v=>v.status==="fechado").map(v=>(v.cliente||"").trim().toLowerCase()));
+    const clientesComVisitaFechada = new Set(visitas.filter(v=>v.status==="fechado").map(v=>normNome(v.cliente)));
     (pedidosFabrica||[]).filter(p=>{
       if(p.visita_id) return false;
-      const clienteNorm = (p.cliente||"").trim().toLowerCase();
+      const clienteNorm = normNome(p.cliente);
       return !(clienteNorm && clientesComVisitaFechada.has(clienteNorm));
     }).forEach(p => {
       if (!p.dataEnvio) return;
@@ -655,8 +656,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     // Exclui pedidos cujo cliente já tem visita fechada correspondente (evita contar 2x)
     const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
       if(p.visita_id) return false;
-      const clienteNorm = (p.cliente||"").trim().toLowerCase();
-      const temVisitaFechada = clienteNorm && visitas.some(v=>v.status==="fechado" && (v.cliente||"").trim().toLowerCase()===clienteNorm);
+      const clienteNorm = normNome(p.cliente);
+      const temVisitaFechada = clienteNorm && visitas.some(v=>v.status==="fechado" && normNome(v.cliente)===clienteNorm);
       if(temVisitaFechada) return false;
       const d = parseData(p.dataEnvio);
       return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
@@ -729,8 +730,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     const mesAtual = agora.getMonth(), anoAtual = agora.getFullYear();
     const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
       if(p.visita_id) return false;
-      const clienteNorm = (p.cliente||"").trim().toLowerCase();
-      const temVisitaFechada = clienteNorm && visitas.some(v=>v.status==="fechado" && (v.cliente||"").trim().toLowerCase()===clienteNorm);
+      const clienteNorm = normNome(p.cliente);
+      const temVisitaFechada = clienteNorm && visitas.some(v=>v.status==="fechado" && normNome(v.cliente)===clienteNorm);
       if(temVisitaFechada) return false;
       const d = parseData(p.dataEnvio);
       return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
@@ -2319,6 +2320,21 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 <div className="card" style={{padding:20,marginBottom:20,border:"1px solid #c9a84c40"}}>
                   <div style={{fontSize:13,color:"#c9a84c",fontWeight:700,marginBottom:16}}>
                     {formPedido.id?"✏️ Editar Pedido":"🆕 Novo Pedido"}
+                  </div>
+                  <div style={{marginBottom:14,padding:12,background:"#0d0d15",borderRadius:8,border:"1px solid #2a2a3a"}}>
+                    <label style={{fontSize:11,color:"#c9a84c",display:"block",marginBottom:6}}>🔗 Vincular a uma visita fechada (opcional)</label>
+                    <select className="inp" value={formPedido.visita_id||""} onChange={e=>{
+                      const vid = e.target.value;
+                      if(!vid) { setFormPedido({...formPedido, visita_id:""}); return; }
+                      const v = visitas.find(x=>String(x.id)===vid);
+                      setFormPedido({...formPedido, visita_id:vid, cliente:v?.cliente||formPedido.cliente, produtos:v?.produtos||formPedido.produtos});
+                    }}>
+                      <option value="">— Sem vínculo (cliente de indicação) —</option>
+                      {visitas.filter(v=>v.status==="fechado").sort((a,b)=>(b.dataVisita||"").localeCompare(a.dataVisita||"")).map(v=>(
+                        <option key={v.id} value={v.id}>{v.cliente} · {v.dataVisita}</option>
+                      ))}
+                    </select>
+                    <div style={{fontSize:10,color:"#555",marginTop:6}}>{formPedido.visita_id?"✅ Vinculado — não conta em duplicidade na conversão":"⚠️ Sem visita — este pedido soma direto na receita e conversão do mês"}</div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
                     <div>
