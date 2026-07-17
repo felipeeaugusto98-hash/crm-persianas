@@ -73,6 +73,13 @@ async function carregar() {
       horaVisita: v.hora_visita, dataCriacao: v.data_criacao
     }));
 
+    const resPedidos = await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    const pedidosFabrica = (await resPedidos.json()).map(p => ({
+      ...p, dataEnvio: p.data_envio, valorPedido: p.valor_pedido, visitaId: p.visita_id
+    }));
+
     const agora = new Date();
     const mesAtual = agora.getMonth();
     const anoAtual = agora.getFullYear();
@@ -89,14 +96,24 @@ async function carregar() {
     const fechados = ativas.filter(v => v.status === "fechado");
     const PERSIANA_KW = ["persiana","rolo","double","triple","veneziana","plissada","colmeia","zebra","romana"];
     const contarNegocio = v => { const txt=(v.produtos||"").toLowerCase(); const temCortina=txt.includes("cortina"); const temPersiana=PERSIANA_KW.some(k=>txt.includes(k)); return (temCortina&&temPersiana)?2:1; };
-    const negociosFechados = fechados.reduce((a,v)=>a+contarNegocio(v),0);
-    const receita = fechados.reduce((a,v) => a + valorFinal(v), 0);
+
+    // Pedidos lançados direto na fábrica sem visita (indicação)
+    const pedidosIndicacaoMes = pedidosFabrica.filter(p => {
+      if(p.visitaId) return false;
+      const d = parseData(p.dataEnvio);
+      return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
+    });
+    const receitaIndicacao = pedidosIndicacaoMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+
+    const negociosFechados = fechados.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoMes.length;
+    const receita = fechados.reduce((a,v) => a + valorFinal(v), 0) + receitaIndicacao;
     const conversao = ativas.length > 0 ? Math.round((negociosFechados / ativas.length) * 100) : 0;
     const visitasHoje = visitas.filter(v => v.dataVisita === hoje && v.status !== "cancelado").length;
     const pendentes = ativas.filter(v => v.status === "orcamento_enviado").length;
     const ticketMedio = negociosFechados > 0 ? receita / negociosFechados : 0;
     const pctMeta = Math.min(receita / META, 1);
     const corMeta = pctMeta >= 1 ? "#10b981" : pctMeta >= 0.6 ? "#c9a84c" : "#ef4444";
+
 
     // Semana
     const diaSemana = agora.getDay();
@@ -109,7 +126,9 @@ async function carregar() {
 
     const fechadosSemana = fechados.filter(v => { const d=parseData(v.dataVisita); return d&&d>=inicioSemana&&d<=fimSemana; });
     const visitasSemana = ativas.filter(v => { const d=parseData(v.dataVisita); return d&&d>=inicioSemana&&d<=fimSemana; });
-    const receitaSemana = fechadosSemana.reduce((a,v) => a+valorFinal(v), 0);
+    const pedidosIndicacaoSemana = pedidosIndicacaoMes.filter(p => { const d=parseData(p.dataEnvio); return d&&d>=inicioSemana&&d<=fimSemana; });
+    const receitaSemana = fechadosSemana.reduce((a,v) => a+valorFinal(v), 0) + pedidosIndicacaoSemana.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+    const fechadosSemanaCount = fechadosSemana.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoSemana.length;
 
     // Mês label
     document.getElementById("mes").textContent = agora.toLocaleString("pt-BR",{month:"long",year:"numeric"});
@@ -166,7 +185,7 @@ async function carregar() {
             <div class="desc">Visitas</div>
           </div>
           <div class="item">
-            <div class="num" style="color:#c9a84c">${fechadosSemana.reduce((a,v)=>a+contarNegocio(v),0)}</div>
+            <div class="num" style="color:#c9a84c">${fechadosSemanaCount}</div>
             <div class="desc">Fechadas</div>
           </div>
         </div>
