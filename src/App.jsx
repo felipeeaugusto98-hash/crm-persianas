@@ -863,9 +863,33 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       if (formCliente.id) await dbClientes.update(formCliente.id, formCliente);
       else await dbClientes.insert(formCliente);
       const c = await dbClientes.get(); setClientes(c);
+
+      // Sincroniza nome completo e dados do cliente com as visitas da agenda (mesmo telefone)
+      const telNorm = (formCliente.telefone||"").replace(/\D/g,"");
+      let qtdAtualizadas = 0;
+      if (telNorm) {
+        const visitasParaAtualizar = visitas.filter(v => (v.telefone||"").replace(/\D/g,"") === telNorm);
+        for (const v of visitasParaAtualizar) {
+          const atualizado = {
+            ...v,
+            cliente: formCliente.nome || v.cliente,
+            email: v.email || formCliente.email,
+            endereco: v.endereco || formCliente.endereco,
+          };
+          if (atualizado.cliente !== v.cliente || atualizado.email !== v.email || atualizado.endereco !== v.endereco) {
+            await db.update(v.id, atualizado);
+            qtdAtualizadas++;
+          }
+        }
+        if (qtdAtualizadas > 0) {
+          const vAtualizadas = await db.get();
+          setVisitas(vAtualizadas);
+        }
+      }
+
       setFormCliente({...emptyCliente});
       setView("clientes");
-      showToast("Cliente salvo com sucesso!");
+      showToast(qtdAtualizadas>0 ? `Cliente salvo! ${qtdAtualizadas} visita${qtdAtualizadas!==1?"s":""} atualizada${qtdAtualizadas!==1?"s":""} na agenda.` : "Cliente salvo com sucesso!");
     } catch(e) { console.error(e); showToast("Erro ao salvar cliente","erro"); }
     setSaving(false);
   };
