@@ -166,13 +166,13 @@ const dbPedidos = {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica?order=created_at.desc`, {
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     });
-    return (await res.json()).map(p => ({...p, numeroPedido: p.numero_pedido, dataEnvio: p.data_envio, statusFabrica: p.status_fabrica, previsaoEntrega: p.previsao_entrega, dataEntregaReal: p.data_entrega_real, valorPedido: p.valor_pedido}));
+    return (await res.json()).map(p => ({...p, numeroPedido: p.numero_pedido, dataEnvio: p.data_envio, statusFabrica: p.status_fabrica, previsaoEntrega: p.previsao_entrega, dataEntregaReal: p.data_entrega_real, valorPedido: p.valor_pedido, clienteId: p.cliente_id}));
   },
   async insert(p) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ numero_pedido: p.numeroPedido, data_envio: p.dataEnvio, produtos: p.produtos, status_fabrica: p.statusFabrica, previsao_entrega: p.previsaoEntrega, data_entrega_real: p.dataEntregaReal, observacoes: p.observacoes, cliente: p.cliente, visita_id: p.visita_id, valor_pedido: p.valorPedido||0 })
+      body: JSON.stringify({ numero_pedido: p.numeroPedido, data_envio: p.dataEnvio, produtos: p.produtos, status_fabrica: p.statusFabrica, previsao_entrega: p.previsaoEntrega, data_entrega_real: p.dataEntregaReal, observacoes: p.observacoes, cliente: p.cliente, visita_id: p.visita_id, valor_pedido: p.valorPedido||0, cliente_id: p.clienteId||null })
     });
     return (await res.json())[0];
   },
@@ -180,7 +180,7 @@ const dbPedidos = {
     await fetch(`${SUPABASE_URL}/rest/v1/pedidos_fabrica?id=eq.${id}`, {
       method: "PATCH",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ numero_pedido: p.numeroPedido, data_envio: p.dataEnvio, produtos: p.produtos, status_fabrica: p.statusFabrica, previsao_entrega: p.previsaoEntrega, data_entrega_real: p.dataEntregaReal, observacoes: p.observacoes, cliente: p.cliente, visita_id: p.visita_id, valor_pedido: p.valorPedido||0 })
+      body: JSON.stringify({ numero_pedido: p.numeroPedido, data_envio: p.dataEnvio, produtos: p.produtos, status_fabrica: p.statusFabrica, previsao_entrega: p.previsaoEntrega, data_entrega_real: p.dataEntregaReal, observacoes: p.observacoes, cliente: p.cliente, visita_id: p.visita_id, valor_pedido: p.valorPedido||0, cliente_id: p.clienteId||null })
     });
   },
   async delete(id) {
@@ -439,7 +439,7 @@ export default function CRM() {
     entregue:    {label:"🚚 Entregue",           color:"#8b5cf6", bg:"#8b5cf615"},
     instalado:   {label:"🏠 Instalado",          color:"#c9a84c", bg:"#c9a84c15"},
   };
-  const emptyPedido = {numeroPedido:"", dataEnvio:hoje, produtos:"", statusFabrica:"aguardando", previsaoEntrega:"", dataEntregaReal:"", observacoes:"", cliente:"", visita_id:"", valorPedido:""};
+  const emptyPedido = {numeroPedido:"", dataEnvio:hoje, produtos:"", statusFabrica:"aguardando", previsaoEntrega:"", dataEntregaReal:"", observacoes:"", cliente:"", visita_id:"", clienteId:"", valorPedido:""};
   const [pedidosFabrica, setPedidosFabrica] = useState([]);
   const [formPedido, setFormPedido] = useState(null);
   const recarregarPedidos = async () => { try { setPedidosFabrica(await dbPedidos.get()); } catch(e) { console.error(e); } };
@@ -864,27 +864,38 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       else await dbClientes.insert(formCliente);
       const c = await dbClientes.get(); setClientes(c);
 
-      // Sincroniza nome completo e dados do cliente com as visitas da agenda (mesmo telefone)
+      // Sincroniza nome completo e dados do cliente com as visitas da agenda
       const telNorm = (formCliente.telefone||"").replace(/\D/g,"");
+      const primeiroNome = normNome(formCliente.nome).split(" ")[0];
       let qtdAtualizadas = 0;
-      if (telNorm) {
-        const visitasParaAtualizar = visitas.filter(v => (v.telefone||"").replace(/\D/g,"") === telNorm);
-        for (const v of visitasParaAtualizar) {
-          const atualizado = {
-            ...v,
-            cliente: formCliente.nome || v.cliente,
-            email: v.email || formCliente.email,
-            endereco: v.endereco || formCliente.endereco,
-          };
-          if (atualizado.cliente !== v.cliente || atualizado.email !== v.email || atualizado.endereco !== v.endereco) {
-            await db.update(v.id, atualizado);
-            qtdAtualizadas++;
-          }
+
+      // 1ª tentativa: telefone exatamente igual
+      let visitasParaAtualizar = telNorm ? visitas.filter(v => (v.telefone||"").replace(/\D/g,"") === telNorm) : [];
+
+      // 2ª tentativa (fallback): mesmo primeiro nome, quando o telefone não bateu (ex: erro de digitação)
+      if (visitasParaAtualizar.length === 0 && primeiroNome) {
+        visitasParaAtualizar = visitas.filter(v => {
+          const vPrimeiroNome = normNome(v.cliente).split(" ")[0];
+          return vPrimeiroNome === primeiroNome && normNome(v.cliente) !== normNome(formCliente.nome);
+        });
+      }
+
+      for (const v of visitasParaAtualizar) {
+        const atualizado = {
+          ...v,
+          cliente: formCliente.nome || v.cliente,
+          telefone: v.telefone || formCliente.telefone,
+          email: v.email || formCliente.email,
+          endereco: v.endereco || formCliente.endereco,
+        };
+        if (atualizado.cliente !== v.cliente || atualizado.email !== v.email || atualizado.endereco !== v.endereco || atualizado.telefone !== v.telefone) {
+          await db.update(v.id, atualizado);
+          qtdAtualizadas++;
         }
-        if (qtdAtualizadas > 0) {
-          const vAtualizadas = await db.get();
-          setVisitas(vAtualizadas);
-        }
+      }
+      if (qtdAtualizadas > 0) {
+        const vAtualizadas = await db.get();
+        setVisitas(vAtualizadas);
       }
 
       setFormCliente({...emptyCliente});
@@ -1027,6 +1038,54 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
         <div style={{fontFamily:"Georgia,serif",fontSize:17,color:"#c9a84c",fontWeight:700}}>Persianas CRM</div>
         <button className="hamburger" onClick={()=>setMenuOpen(!menuOpen)}>☰</button>
       </div>
+
+      {/* Modal dados do cliente (global, acessível de qualquer aba) */}
+      {clienteInfo && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setClienteInfo(null)}>
+          <div style={{background:"#12121a",border:"1px solid #2a2a3a",borderRadius:16,padding:24,maxWidth:500,width:"100%",maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#c9a84c"}}>👤 Dados do Cliente</div>
+              <button className="btn bg" onClick={()=>setClienteInfo(null)} style={{fontSize:16,padding:"4px 10px"}}>✕</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+              {[
+                {l:"NOME",v:clienteInfo.nome},
+                {l:"TELEFONE",v:clienteInfo.telefone},
+                {l:"E-MAIL",v:clienteInfo.email},
+                {l:"ORIGEM",v:clienteInfo.origem,cor:"#c9a84c"},
+                {l:"CPF",v:clienteInfo.cpf},
+                {l:"DATA DE NASCIMENTO",v:clienteInfo.dataNascimento,icon:"🎂"},
+                {l:"ENDEREÇO",v:clienteInfo.endereco},
+                {l:"CEP",v:clienteInfo.cep},
+                {l:"BAIRRO",v:clienteInfo.bairro},
+                {l:"CIDADE",v:clienteInfo.cidade},
+              ].map((campo,i)=>(
+                <div key={i} style={campo.l==="ENDEREÇO"?{gridColumn:"span 2"}:{}}>
+                  <div style={{fontSize:9,color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:4}}>{campo.icon||""} {campo.l}</div>
+                  <div style={{fontSize:14,color:campo.cor||"#e8e4dc",fontWeight:500}}>{campo.v||"—"}</div>
+                </div>
+              ))}
+            </div>
+            {clienteInfo.observacoes && (
+              <div style={{marginTop:14,padding:12,background:"#1a1d27",borderRadius:8}}>
+                <div style={{fontSize:9,color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:4}}>OBSERVAÇÕES</div>
+                <div style={{fontSize:13,color:"#aaa"}}>{clienteInfo.observacoes}</div>
+              </div>
+            )}
+            <div style={{display:"flex",gap:10,marginTop:16}}>
+              {clienteInfo.telefone && (
+                <a href={`https://wa.me/55${clienteInfo.telefone.replace(/\D/g,"")}`} target="_blank" rel="noreferrer" style={{textDecoration:"none",flex:1}}>
+                  <button className="btn bg" style={{width:"100%",color:"#25d366",borderColor:"#25d36640"}}>💬 WhatsApp</button>
+                </a>
+              )}
+              <button className="btn bg" style={{flex:1}} onClick={()=>{
+                setSelected(null);setView("clientes");
+                setClienteInfo(null);
+              }}>📋 Ver Cadastro Completo</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* LEMBRETE DO DIA */}
       {showLembrete && (()=>{
@@ -2360,6 +2419,21 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                     </select>
                     <div style={{fontSize:10,color:"#555",marginTop:6}}>{formPedido.visita_id?"✅ Vinculado — não conta em duplicidade na conversão":"⚠️ Sem visita — este pedido soma direto na receita e conversão do mês"}</div>
                   </div>
+                  <div style={{marginBottom:14,padding:12,background:"#0d0d15",borderRadius:8,border:"1px solid #2a2a3a"}}>
+                    <label style={{fontSize:11,color:"#c9a84c",display:"block",marginBottom:6}}>👤 Vincular ao cadastro de cliente (indicação / cliente antigo)</label>
+                    <select className="inp" value={formPedido.clienteId||""} onChange={e=>{
+                      const cid = e.target.value;
+                      if(!cid) { setFormPedido({...formPedido, clienteId:""}); return; }
+                      const c = clientes.find(x=>String(x.id)===cid);
+                      setFormPedido({...formPedido, clienteId:cid, cliente:c?.nome||formPedido.cliente});
+                    }}>
+                      <option value="">— Não vincular a nenhum cadastro —</option>
+                      {clientes.slice().sort((a,b)=>(a.nome||"").localeCompare(b.nome||"")).map(c=>(
+                        <option key={c.id} value={c.id}>{c.nome} {c.telefone?`· ${c.telefone}`:""}</option>
+                      ))}
+                    </select>
+                    <div style={{fontSize:10,color:"#555",marginTop:6}}>{formPedido.clienteId?"✅ Vinculado ao cadastro — dados completos acessíveis pelo pedido":"Use isto para clientes antigos ou indicações que não passaram pela agenda"}</div>
+                  </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}} className="grid-2col">
                     <div>
                       <label style={{fontSize:11,color:"#777",display:"block",marginBottom:6}}>Nº do Pedido *</label>
@@ -2442,7 +2516,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                                 <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:st.bg,color:st.color,fontWeight:600}}>{st.label}</span>
                                 {atrasado && <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:"#ef444415",color:"#ef4444",fontWeight:600}}>⚠️ Atrasado</span>}
                               </div>
-                              <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>{p.cliente}</div>
+                              <div style={{fontSize:14,fontWeight:600,marginBottom:4,...(p.clienteId?{cursor:"pointer",textDecoration:"underline",textDecorationColor:"#c9a84c40",textUnderlineOffset:3}:{})}} onClick={p.clienteId?()=>{const c=clientes.find(x=>String(x.id)===String(p.clienteId));if(c)setClienteInfo(c);}:undefined}>{p.cliente}{p.clienteId?" 👤":""}</div>
                               <div style={{fontSize:12,color:"#777"}}>{p.produtos}</div>
                               {Number(p.valorPedido)>0 && <div style={{fontSize:13,color:"#10b981",fontWeight:600,marginTop:2}}>{fmt(Number(p.valorPedido))}</div>}
                               <div style={{display:"flex",gap:16,marginTop:6,flexWrap:"wrap"}}>
@@ -2804,54 +2878,6 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
             </div>
 
             {/* Score do Lead */}
-            {/* Modal dados do cliente */}
-            {clienteInfo && (
-              <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setClienteInfo(null)}>
-                <div style={{background:"#12121a",border:"1px solid #2a2a3a",borderRadius:16,padding:24,maxWidth:500,width:"100%",maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#c9a84c"}}>👤 Dados do Cliente</div>
-                    <button className="btn bg" onClick={()=>setClienteInfo(null)} style={{fontSize:16,padding:"4px 10px"}}>✕</button>
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-                    {[
-                      {l:"NOME",v:clienteInfo.nome},
-                      {l:"TELEFONE",v:clienteInfo.telefone},
-                      {l:"E-MAIL",v:clienteInfo.email},
-                      {l:"ORIGEM",v:clienteInfo.origem,cor:"#c9a84c"},
-                      {l:"CPF",v:clienteInfo.cpf},
-                      {l:"DATA DE NASCIMENTO",v:clienteInfo.dataNascimento,icon:"🎂"},
-                      {l:"ENDEREÇO",v:clienteInfo.endereco},
-                      {l:"CEP",v:clienteInfo.cep},
-                      {l:"BAIRRO",v:clienteInfo.bairro},
-                      {l:"CIDADE",v:clienteInfo.cidade},
-                    ].map((campo,i)=>(
-                      <div key={i} style={campo.l==="ENDEREÇO"?{gridColumn:"span 2"}:{}}>
-                        <div style={{fontSize:9,color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:4}}>{campo.icon||""} {campo.l}</div>
-                        <div style={{fontSize:14,color:campo.cor||"#e8e4dc",fontWeight:500}}>{campo.v||"—"}</div>
-                      </div>
-                    ))}
-                  </div>
-                  {clienteInfo.observacoes && (
-                    <div style={{marginTop:14,padding:12,background:"#1a1d27",borderRadius:8}}>
-                      <div style={{fontSize:9,color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:4}}>OBSERVAÇÕES</div>
-                      <div style={{fontSize:13,color:"#aaa"}}>{clienteInfo.observacoes}</div>
-                    </div>
-                  )}
-                  <div style={{display:"flex",gap:10,marginTop:16}}>
-                    {clienteInfo.telefone && (
-                      <a href={`https://wa.me/55${clienteInfo.telefone.replace(/\D/g,"")}`} target="_blank" rel="noreferrer" style={{textDecoration:"none",flex:1}}>
-                        <button className="btn bg" style={{width:"100%",color:"#25d366",borderColor:"#25d36640"}}>💬 WhatsApp</button>
-                      </a>
-                    )}
-                    <button className="btn bg" style={{flex:1}} onClick={()=>{
-                      const cli = clientes.find(c=>c.id===clienteInfo.id);
-                      if(cli){setSelected(null);setView("clientes");}
-                      setClienteInfo(null);
-                    }}>📋 Ver Cadastro Completo</button>
-                  </div>
-                </div>
-              </div>
-            )}
             {(()=>{
               // Se já fechou, score é 100. Se perdido, mostra diferente.
               if(selected.status==="fechado"){
