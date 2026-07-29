@@ -209,6 +209,13 @@ const fmt = (v) => Number(v||0).toLocaleString("pt-BR",{style:"currency",currenc
 const brToIso = (br) => { if(!br) return ""; const p=br.split("/"); return p.length===3?`${p[2]}-${p[1]}-${p[0]}`:""; };
 const isoToBr = (iso) => { if(!iso) return ""; const p=iso.split("-"); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:""; };
 const valorFinal = (d) => { const v=Number(d.valorOrcamento||0); return v-(v*Number(d.desconto||0))/100; };
+// Se a visita fechada não tem valor de orçamento preenchido, usa a soma dos pedidos de fábrica vinculados a ela
+const valorVisita = (v, pedidosFabrica) => {
+  const direto = valorFinal(v);
+  if (direto > 0) return direto;
+  if (!pedidosFabrica || !pedidosFabrica.length) return 0;
+  return pedidosFabrica.filter(p => String(p.visita_id) === String(v.id)).reduce((a,p)=>a+Number(p.valorPedido||0), 0);
+};
 const normNome = (s) => (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase().replace(/\s+/g," ");
 
 function extrairEmail(texto) {
@@ -244,7 +251,7 @@ function GraficoLinha({ visitas, pedidosFabrica }) {
       const parts = v.dataCriacao.split('/');
       if (parts.length < 3) return;
       const key = `${parts[1]}/${parts[2]}`;
-      if (map[key] && v.status === 'fechado') map[key].receita += valorFinal(v);
+      if (map[key] && v.status === 'fechado') map[key].receita += valorVisita(v, pedidosFabrica);
     });
     // Pedidos lançados direto na fábrica sem visita (indicação) também entram — exclui duplicados por cliente
     const clientesComVisitaFechada = new Set(visitas.filter(v=>v.status==="fechado").map(v=>normNome(v.cliente)));
@@ -404,6 +411,7 @@ export default function CRM() {
   const [searchCliente, setSearchCliente] = useState("");
   const [calMes, setCalMes] = useState(new Date().getMonth());
   const [calAno, setCalAno] = useState(new Date().getFullYear());
+  const [calSearch, setCalSearch] = useState("");
   const [diaSelected, setDiaSelected] = useState(null);
   const [showLembrete, setShowLembrete] = useState(false);
   const [ocorrencias, setOcorrencias] = useState([]);
@@ -676,11 +684,11 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       fechados: fechados.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoMes.length,
       pendentes: ativas.filter(v=>v.status==="orcamento_enviado").length,
       hoje: visitas.filter(v=>v.dataVisita===hoje&&v.status!=="cancelado").length,
-      receita: fechados.reduce((a,v)=>a+valorFinal(v),0) + receitaIndicacao,
+      receita: fechados.reduce((a,v)=>a+valorVisita(v,pedidosFabrica),0) + receitaIndicacao,
       pedidosIndicacaoMes: pedidosIndicacaoMes.length,
       conversao: ativas.length>0?(((fechados.reduce((a,v)=>a+contarNegocio(v),0)+pedidosIndicacaoMes.length)/ativas.length)*100).toFixed(0):0,
       semana: {
-        receita: fechadosSemana.reduce((a,v)=>a+valorFinal(v),0) + receitaIndicacaoSemana,
+        receita: fechadosSemana.reduce((a,v)=>a+valorVisita(v,pedidosFabrica),0) + receitaIndicacaoSemana,
         vendas: fechadosSemana.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoSemana.length,
         visitas: ativasSemana.length,
         conversao: ativasSemana.length>0?Math.round((fechadosSemana.length+pedidosIndicacaoSemana.length)/ativasSemana.length*100):0,
@@ -736,7 +744,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
       const d = parseData(p.dataEnvio);
       return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
     });
-    const totalVendas = fechados.reduce((a, v) => a + valorFinal(v), 0) + pedidosIndicacaoMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+    const totalVendas = fechados.reduce((a, v) => a + valorVisita(v,pedidosFabrica), 0) + pedidosIndicacaoMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
     const totalVisitas = ativas.length;
     const negociosFechados = fechados.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoMes.length;
     const conversao = totalVisitas > 0 ? (negociosFechados / totalVisitas) * 100 : 0;
@@ -1235,12 +1243,41 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
               <div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:4}}>📅 Calendário de Visitas</div>
               <div style={{fontSize:12,color:"#555",marginBottom:20}}>Visualize suas visitas por dia</div>
 
+              <input className="inp" placeholder="🔍 Buscar visita pelo nome do cliente..." value={calSearch} onChange={e=>setCalSearch(e.target.value)} style={{marginBottom:16}}/>
+
+              {calSearch.trim() ? (()=>{
+                const termo = normNome(calSearch);
+                const resultados = visitas.filter(v=>normNome(v.cliente).includes(termo)).sort((a,b)=>{
+                  const da = parseData(a.dataVisita), db_ = parseData(b.dataVisita);
+                  if(!da) return 1; if(!db_) return -1;
+                  return db_-da;
+                });
+                return (
+                  <div className="card" style={{padding:16,marginBottom:16}}>
+                    <div style={{fontSize:12,color:"#c9a84c",marginBottom:10}}>{resultados.length} resultado{resultados.length!==1?"s":""} para "{calSearch}"</div>
+                    {resultados.length===0 && <div style={{fontSize:13,color:"#444"}}>Nenhuma visita encontrada.</div>}
+                    {resultados.map(v=>(
+                      <div key={v.id} style={{padding:"12px",borderRadius:8,background:"#0d0d15",border:"1px solid #1e1e28",marginBottom:8,cursor:"pointer"}} onClick={()=>{setSelected(v);setView("detalhe")}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div>
+                            <div style={{fontSize:14,fontWeight:600}}>{v.cliente}</div>
+                            <div style={{fontSize:11,color:"#555",marginTop:2}}>{v.dataVisita} · {v.horaVisita} · {v.ambiente}</div>
+                          </div>
+                          <div style={{fontSize:10,padding:"4px 10px",borderRadius:20,background:STATUS[v.status]?.bg,color:STATUS[v.status]?.color,fontWeight:600}}>{STATUS[v.status]?.icon} {STATUS[v.status]?.label}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })() : (
               <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:20}}>
                 <button className="btn bg" style={{padding:"8px 16px"}} onClick={()=>{if(calMes===0){setCalMes(11);setCalAno(calAno-1)}else setCalMes(calMes-1);setDiaSelected(null)}}>←</button>
                 <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#c9a84c",textTransform:"capitalize",flex:1,textAlign:"center"}}>{nomeMes}</div>
                 <button className="btn bg" style={{padding:"8px 16px"}} onClick={()=>{if(calMes===11){setCalMes(0);setCalAno(calAno+1)}else setCalMes(calMes+1);setDiaSelected(null)}}>→</button>
               </div>
+              )}
 
+              {!calSearch.trim() && (
               <div className="card" style={{padding:16,marginBottom:16}}>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:8}}>
                   {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map(d=>(
@@ -1275,8 +1312,9 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   })}
                 </div>
               </div>
+              )}
 
-              {diaSelected && (
+              {!calSearch.trim() && diaSelected && (
                 <div className="card" style={{padding:18}}>
                   <div style={{fontSize:13,color:"#c9a84c",fontWeight:600,marginBottom:12}}>
                     {String(diaSelected).padStart(2,'0')}/{String(calMes+1).padStart(2,'0')}/{calAno} — {visitasSelecionadas.length} visita{visitasSelecionadas.length!==1?"s":""}
@@ -1599,7 +1637,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
             return parseD(b.dataVisita)-parseD(a.dataVisita);
           });
           const [searchFechado, setSearchFechado] = [search, setSearch];
-          const receitaTotal = fechados.reduce((a,v)=>a+valorFinal(v),0);
+          const receitaTotal = fechados.reduce((a,v)=>a+valorVisita(v,pedidosFabrica),0);
           const ticketMedio = fechados.length>0?receitaTotal/fechados.length:0;
 
           const filtrados = fechados.filter(v=>
@@ -2723,7 +2761,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
           const fechados = visitas.filter(v=>v.status==="fechado");
           const perdidos = visitas.filter(v=>v.status==="perdido");
           const totalVisitas = visitas.length;
-          const receitaTotal = fechados.reduce((a,v)=>a+valorFinal(v),0);
+          const receitaTotal = fechados.reduce((a,v)=>a+valorVisita(v,pedidosFabrica),0);
           const ticketMedio = fechados.length>0?receitaTotal/fechados.length:0;
           const conversaoG = totalVisitas>0?Math.round(fechados.length/totalVisitas*100):0;
           return (
@@ -2734,7 +2772,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   <div style={{fontSize:12,color:"#555",marginTop:2}}>Resumo executivo — {hoje.slice(3)}</div>
                 </div>
                 <button className="btn bg" style={{color:"#c9a84c",borderColor:"#c9a84c40",fontSize:12}} onClick={()=>{
-                  const txt = `RELATÓRIO MENSAL — ${hoje.slice(3)}\n${userInfo.nomeCompleto}\n${"─".repeat(40)}\n\nVISITAS\nTotal: ${totalVisitas} | Fechadas: ${fechados.length} | Perdidas: ${perdidos.length}\nConversão: ${conversaoG}%\n\nRECEITA\nTotal vendido: ${fmt(receitaTotal)}\nTicket médio: ${fmt(ticketMedio)}\nMeta mensal: ${fmt(META_MENSAL)}\nAtingimento: ${Math.round(receitaTotal/META_MENSAL*100)}%\n\nCOMISSÃO\nPercentual: ${comissao.pct}%\nValor: ${fmt(comissao.valorComissao)}\n\n${"─".repeat(40)}\nFECHAMENTOS:\n${fechados.map((v,i)=>`${i+1}. ${v.cliente} — ${fmt(valorFinal(v))}`).join("\n")}`;
+                  const txt = `RELATÓRIO MENSAL — ${hoje.slice(3)}\n${userInfo.nomeCompleto}\n${"─".repeat(40)}\n\nVISITAS\nTotal: ${totalVisitas} | Fechadas: ${fechados.length} | Perdidas: ${perdidos.length}\nConversão: ${conversaoG}%\n\nRECEITA\nTotal vendido: ${fmt(receitaTotal)}\nTicket médio: ${fmt(ticketMedio)}\nMeta mensal: ${fmt(META_MENSAL)}\nAtingimento: ${Math.round(receitaTotal/META_MENSAL*100)}%\n\nCOMISSÃO\nPercentual: ${comissao.pct}%\nValor: ${fmt(comissao.valorComissao)}\n\n${"─".repeat(40)}\nFECHAMENTOS:\n${fechados.map((v,i)=>`${i+1}. ${v.cliente} — ${fmt(valorVisita(v,pedidosFabrica))}`).join("\n")}`;
                   navigator.clipboard.writeText(txt).then(()=>alert("Copiado!"));
                 }}>📋 Copiar Relatório</button>
               </div>
