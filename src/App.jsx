@@ -2578,7 +2578,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                                 <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:st.bg,color:st.color,fontWeight:600}}>{st.label}</span>
                                 {atrasado && <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:"#ef444415",color:"#ef4444",fontWeight:600}}>⚠️ Atrasado</span>}
                               </div>
-                              <div style={{fontSize:14,fontWeight:600,marginBottom:4,...(p.clienteId?{cursor:"pointer",textDecoration:"underline",textDecorationColor:"#c9a84c40",textUnderlineOffset:3}:{})}} onClick={p.clienteId?()=>{const c=clientes.find(x=>String(x.id)===String(p.clienteId));if(c)setClienteInfo(c);}:undefined}>{p.cliente}{p.clienteId?" 👤":""}</div>
+                              <div style={{fontSize:14,fontWeight:600,marginBottom:4,...(p.clienteId?{cursor:"pointer",textDecoration:"underline",textDecorationColor:"#c9a84c40",textUnderlineOffset:3}:{})}} onClick={p.clienteId?()=>{const c=clientes.find(x=>String(x.id)===String(p.clienteId));if(c)setClienteInfo(c);}:undefined}><span style={{color:"#555",fontWeight:400}}>{i+1}.</span> {p.cliente}{p.clienteId?" 👤":""}</div>
                               <div style={{fontSize:12,color:"#777"}}>{p.produtos}</div>
                               {Number(p.valorPedido)>0 && <div style={{fontSize:13,color:"#10b981",fontWeight:600,marginTop:2}}>{fmt(Number(p.valorPedido))}</div>}
                               <div style={{display:"flex",gap:16,marginTop:6,flexWrap:"wrap"}}>
@@ -2617,6 +2617,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                         <div key={i} style={{padding:"12px 16px",borderBottom:"1px solid #1a1a24",opacity:0.6}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                             <div>
+                              <span style={{fontSize:11,color:"#555",marginRight:8}}>{i+1}.</span>
                               <span style={{fontFamily:"Georgia,serif",color:"#c9a84c",fontWeight:700,marginRight:10}}>#{p.numeroPedido}</span>
                               <span style={{fontSize:13,color:"#aaa"}}>{p.cliente}</span>
                               <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:st.bg,color:st.color,marginLeft:8}}>{st.label}</span>
