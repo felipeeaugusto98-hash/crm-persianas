@@ -94,6 +94,11 @@ async function carregar() {
 
     const ativas = visitasMes.filter(v => v.status !== "cancelado");
     const valorFinal = v => { const val=Number(v.valorOrcamento||0); return val-(val*Number(v.desconto||0))/100; };
+    const valorVisita = (v, pedidosFabrica) => {
+      const direto = valorFinal(v);
+      if (direto > 0) return direto;
+      return pedidosFabrica.filter(p => String(p.visita_id) === String(v.id)).reduce((a,p)=>a+Number(p.valorPedido||0), 0);
+    };
     const fechados = ativas.filter(v => v.status === "fechado");
     const PERSIANA_KW = ["persiana","rolo","double","triple","veneziana","plissada","colmeia","zebra","romana"];
     const contarNegocio = v => { const txt=(v.produtos||"").toLowerCase(); const temCortina=txt.includes("cortina"); const temPersiana=PERSIANA_KW.some(k=>txt.includes(k)); return (temCortina&&temPersiana)?2:1; };
@@ -110,7 +115,7 @@ async function carregar() {
     const receitaIndicacao = pedidosIndicacaoMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
 
     const negociosFechados = fechados.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoMes.length;
-    const receita = fechados.reduce((a,v) => a + valorFinal(v), 0) + receitaIndicacao;
+    const receita = fechados.reduce((a,v) => a + valorVisita(v, pedidosFabrica), 0) + receitaIndicacao;
     const conversao = ativas.length > 0 ? Math.round((negociosFechados / ativas.length) * 100) : 0;
     const visitasHoje = visitas.filter(v => v.dataVisita === hoje && v.status !== "cancelado").length;
     const pendentes = ativas.filter(v => v.status === "orcamento_enviado").length;
@@ -131,7 +136,7 @@ async function carregar() {
     const fechadosSemana = fechados.filter(v => { const d=parseData(v.dataVisita); return d&&d>=inicioSemana&&d<=fimSemana; });
     const visitasSemana = ativas.filter(v => { const d=parseData(v.dataVisita); return d&&d>=inicioSemana&&d<=fimSemana; });
     const pedidosIndicacaoSemana = pedidosIndicacaoMes.filter(p => { const d=parseData(p.dataEnvio); return d&&d>=inicioSemana&&d<=fimSemana; });
-    const receitaSemana = fechadosSemana.reduce((a,v) => a+valorFinal(v), 0) + pedidosIndicacaoSemana.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+    const receitaSemana = fechadosSemana.reduce((a,v) => a+valorVisita(v,pedidosFabrica), 0) + pedidosIndicacaoSemana.reduce((a,p)=>a+Number(p.valorPedido||0),0);
     const fechadosSemanaCount = fechadosSemana.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoSemana.length;
 
     // Mês label
