@@ -2450,8 +2450,21 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
               {/* Formulário */}
               {formPedido && (
                 <div className="card" style={{padding:20,marginBottom:20,border:"1px solid #c9a84c40"}}>
-                  <div style={{fontSize:13,color:"#c9a84c",fontWeight:700,marginBottom:16}}>
-                    {formPedido.id?"✏️ Editar Pedido":"🆕 Novo Pedido"}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                    <div style={{fontSize:13,color:"#c9a84c",fontWeight:700}}>
+                      {formPedido.id?"✏️ Editar Pedido":"🆕 Novo Pedido"}
+                    </div>
+                    {formPedido.id && (
+                      <button className="btn" style={{fontSize:11,padding:"6px 12px",background:"#ef444415",color:"#ef4444",border:"1px solid #ef444440"}} onClick={async()=>{
+                        if(!window.confirm(`Excluir o pedido #${formPedido.numeroPedido} de ${formPedido.cliente}? Essa ação não pode ser desfeita.`)) return;
+                        try {
+                          await dbPedidos.delete(formPedido.id);
+                          setPedidosFabrica(await dbPedidos.get());
+                          setFormPedido(null);
+                          showToast("Pedido excluído!");
+                        } catch(e) { console.error(e); showToast("Erro ao excluir","erro"); }
+                      }}>🗑️ Excluir Pedido</button>
+                    )}
                   </div>
                   <div style={{marginBottom:14,padding:12,background:"#0d0d15",borderRadius:8,border:"1px solid #2a2a3a"}}>
                     <label style={{fontSize:11,color:"#c9a84c",display:"block",marginBottom:6}}>🔗 Vincular a uma visita fechada (opcional)</label>
