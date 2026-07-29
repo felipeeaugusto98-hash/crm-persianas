@@ -256,7 +256,11 @@ function GraficoLinha({ visitas, pedidosFabrica }) {
     // Pedidos lançados direto na fábrica sem visita (indicação) também entram — exclui duplicados por cliente
     const clientesComVisitaFechada = new Set(visitas.filter(v=>v.status==="fechado").map(v=>normNome(v.cliente)));
     (pedidosFabrica||[]).filter(p=>{
-      if(p.visita_id) return false;
+      if(p.visita_id) {
+        const visitaVinculada = visitas.find(v=>String(v.id)===String(p.visita_id));
+        if(visitaVinculada && visitaVinculada.status==="fechado") return false;
+        return true;
+      }
       const clienteNorm = normNome(p.cliente);
       return !(clienteNorm && clientesComVisitaFechada.has(clienteNorm));
     }).forEach(p => {
@@ -663,9 +667,13 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     // Pedidos lançados direto em Pedidos Fábrica sem visita (indicação) — contam na receita/conversão
     // Exclui pedidos cujo cliente já tem visita fechada correspondente (evita contar 2x)
     const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
-      if(p.visita_id) return false;
+      if(p.visita_id) {
+        const visitaVinculada = visitas.find(v=>String(v.id)===String(p.visita_id));
+        if(visitaVinculada && visitaVinculada.status==="fechado") return false; // já contado via visita
+        // se a visita vinculada não existe mais ou não está fechada, o pedido conta como extra
+      }
       const clienteNorm = normNome(p.cliente);
-      const temVisitaFechada = clienteNorm && visitas.some(v=>v.status==="fechado" && normNome(v.cliente)===clienteNorm);
+      const temVisitaFechada = !p.visita_id && clienteNorm && visitas.some(v=>v.status==="fechado" && normNome(v.cliente)===clienteNorm);
       if(temVisitaFechada) return false;
       const d = parseData(p.dataEnvio);
       return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
@@ -737,9 +745,12 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     const agora = new Date();
     const mesAtual = agora.getMonth(), anoAtual = agora.getFullYear();
     const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
-      if(p.visita_id) return false;
+      if(p.visita_id) {
+        const visitaVinculada = visitas.find(v=>String(v.id)===String(p.visita_id));
+        if(visitaVinculada && visitaVinculada.status==="fechado") return false;
+      }
       const clienteNorm = normNome(p.cliente);
-      const temVisitaFechada = clienteNorm && visitas.some(v=>v.status==="fechado" && normNome(v.cliente)===clienteNorm);
+      const temVisitaFechada = !p.visita_id && clienteNorm && visitas.some(v=>v.status==="fechado" && normNome(v.cliente)===clienteNorm);
       if(temVisitaFechada) return false;
       const d = parseData(p.dataEnvio);
       return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
@@ -3038,6 +3049,24 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 <Field label="Valor Final" value={selected.valorOrcamento?fmt(valorFinal(selected)):null} color="#10b981"/>
                 <Field label="Instalação" value={selected.dataInstalacao} color="#8b5cf6"/>
                 {selected.status==="fechado" && (()=>{
+                  const pedidosVinculados = (pedidosFabrica||[]).filter(p=>String(p.visita_id)===String(selected.id));
+                  if(pedidosVinculados.length>0) {
+                    return (
+                      <div style={{marginTop:10,padding:"10px 12px",borderRadius:8,background:"#10b98110",border:"1px solid #10b98130"}}>
+                        <div style={{fontSize:10,color:"#10b981",marginBottom:6}}>✅ PEDIDO{pedidosVinculados.length>1?"S":""} NA FÁBRICA VINCULADO{pedidosVinculados.length>1?"S":""}</div>
+                        {pedidosVinculados.map(p=>(
+                          <div key={p.id} style={{padding:"8px 10px",background:"#0d0d15",borderRadius:6,marginBottom:6}}>
+                            <div style={{fontSize:12,fontWeight:600,color:"#e8e4dc"}}>#{p.numeroPedido} · {fmt(p.valorPedido)}</div>
+                            <div style={{fontSize:10,color:"#777",marginTop:2}}>{p.produtos} · {p.statusFabrica||"aguardando"} · Prazo: {p.previsaoEntrega||"—"}</div>
+                          </div>
+                        ))}
+                        <button className="btn bg" style={{width:"100%",marginTop:4,fontSize:12,padding:"8px"}} onClick={()=>{
+                          setFormPedido({...pedidosVinculados[0]});
+                          setView("fabrica");
+                        }}>✏️ Editar Pedido</button>
+                      </div>
+                    );
+                  }
                   const prazo = calcPrazo(selected.dataVisita, selected.produtos);
                   const temCortina = (selected.produtos||"").toLowerCase().includes("cortina");
                   return (
