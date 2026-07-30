@@ -52,7 +52,7 @@ const dbClientes = {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/clientes`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem, cpf: c.cpf, data_nascimento: c.dataNascimento, cep: c.cep })
+      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem, cpf: c.cpf, cnpj: c.cnpj||"", razao_social: c.razaoSocial||"", tipo_pessoa: c.tipoPessoa||"fisica", data_nascimento: c.dataNascimento, cep: c.cep })
     });
     return (await res.json())[0];
   },
@@ -60,7 +60,7 @@ const dbClientes = {
     await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${id}`, {
       method: "PATCH",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem, cpf: c.cpf, data_nascimento: c.dataNascimento, cep: c.cep })
+      body: JSON.stringify({ nome: c.nome, telefone: c.telefone, email: c.email, endereco: c.endereco, bairro: c.bairro, cidade: c.cidade, observacoes: c.observacoes, origem: c.origem, cpf: c.cpf, cnpj: c.cnpj||"", razao_social: c.razaoSocial||"", tipo_pessoa: c.tipoPessoa||"fisica", data_nascimento: c.dataNascimento, cep: c.cep })
     });
   },
   async delete(id) {
@@ -191,7 +191,7 @@ const dbPedidos = {
   }
 };
 
-const emptyCliente = { nome:"", telefone:"", email:"", endereco:"", bairro:"", cidade:"", observacoes:"", origem:"", cpf:"", dataNascimento:"" };
+const emptyCliente = { nome:"", telefone:"", email:"", endereco:"", bairro:"", cidade:"", observacoes:"", origem:"", cpf:"", cnpj:"", razaoSocial:"", tipoPessoa:"fisica", dataNascimento:"" };
 
 const STATUS = {
   agendado: { label: "Agendado", color: "#3b82f6", bg: "#3b82f615", icon: "📅" },
@@ -246,24 +246,8 @@ function GraficoLinha({ visitas, pedidosFabrica }) {
       const label = d.toLocaleString('pt-BR',{month:'short'}).replace('.','');
       map[key] = { label, receita: 0 };
     }
-    visitas.forEach(v => {
-      if (!v.dataCriacao) return;
-      const parts = v.dataCriacao.split('/');
-      if (parts.length < 3) return;
-      const key = `${parts[1]}/${parts[2]}`;
-      if (map[key] && v.status === 'fechado') map[key].receita += valorVisita(v, pedidosFabrica);
-    });
-    // Pedidos lançados direto na fábrica sem visita (indicação) também entram — exclui duplicados por cliente
-    const clientesComVisitaFechada = new Set(visitas.filter(v=>v.status==="fechado").map(v=>normNome(v.cliente)));
-    (pedidosFabrica||[]).filter(p=>{
-      if(p.visita_id) {
-        const visitaVinculada = visitas.find(v=>String(v.id)===String(p.visita_id));
-        if(visitaVinculada && visitaVinculada.status==="fechado") return false;
-        return true;
-      }
-      const clienteNorm = normNome(p.cliente);
-      return !(clienteNorm && clientesComVisitaFechada.has(clienteNorm));
-    }).forEach(p => {
+    // Fonte única: todo pedido lançado em Pedidos Fábrica, agrupado pelo mês de envio
+    (pedidosFabrica||[]).forEach(p => {
       if (!p.dataEnvio) return;
       const parts = p.dataEnvio.split('/');
       if (parts.length < 3) return;
@@ -307,15 +291,8 @@ function GraficoLinha({ visitas, pedidosFabrica }) {
   );
 }
 
-function Funil({ visitas, pedidosIndicacaoMes }) {
+function Funil({ visitas, fechadosTotal }) {
   const ativas = visitas.filter(v=>v.status!=="cancelado");
-  const PERSIANA_KW = ["persiana","rolo","double","triple","veneziana","plissada","colmeia","zebra","romana"];
-  const contarNeg = (v) => {
-    const txt=(v.produtos||"").toLowerCase();
-    const temCortina=txt.includes("cortina");
-    const temPersiana=PERSIANA_KW.some(k=>txt.includes(k));
-    return (temCortina&&temPersiana)?2:1;
-  };
   const etapas = [
     {label:"Leads",key:null,color:"#3b82f6"},
     {label:"Visitado",key:"visitado",color:"#f59e0b"},
@@ -324,7 +301,7 @@ function Funil({ visitas, pedidosIndicacaoMes }) {
   ];
   const counts = etapas.map(e => {
     if(e.key===null) return ativas.length;
-    if(e.key==="fechado") return ativas.filter(v=>v.status==="fechado").reduce((a,v)=>a+contarNeg(v),0) + (pedidosIndicacaoMes||0);
+    if(e.key==="fechado") return fechadosTotal||0;
     return ativas.filter(v=>v.status===e.key).length;
   });
   const max = Math.max(counts[0],1);
@@ -655,51 +632,38 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
     fimSemana.setDate(inicioSemana.getDate()+6);
     fimSemana.setHours(23,59,59,999);
 
-    const fechadosSemana = fechados.filter(v=>{
-      const d = parseData(v.dataVisita);
-      return d && d>=inicioSemana && d<=fimSemana;
-    });
     const ativasSemana = ativas.filter(v=>{
       const d = parseData(v.dataVisita);
       return d && d>=inicioSemana && d<=fimSemana;
     });
 
-    // Pedidos lançados direto em Pedidos Fábrica sem visita (indicação) — contam na receita/conversão
-    // Exclui pedidos cujo cliente já tem visita fechada correspondente (evita contar 2x)
-    const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
-      if(p.visita_id) {
-        const visitaVinculada = visitas.find(v=>String(v.id)===String(p.visita_id));
-        if(visitaVinculada && visitaVinculada.status==="fechado") return false; // já contado via visita
-        // se a visita vinculada não existe mais ou não está fechada, o pedido conta como extra
-      }
-      const clienteNorm = normNome(p.cliente);
-      const temVisitaFechada = !p.visita_id && clienteNorm && visitas.some(v=>v.status==="fechado" && normNome(v.cliente)===clienteNorm);
-      if(temVisitaFechada) return false;
+    // Fonte única de verdade pra fechados/receita/conversão: TODO pedido lançado em Pedidos Fábrica no mês
+    // (tenha ou não visita vinculada — cortina+persiana já vem como 2 linhas separadas, então já conta certo)
+    const pedidosMes = (pedidosFabrica||[]).filter(p=>{
       const d = parseData(p.dataEnvio);
       return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
     });
-    const pedidosIndicacaoSemana = pedidosIndicacaoMes.filter(p=>{
+    const pedidosSemana = (pedidosFabrica||[]).filter(p=>{
       const d = parseData(p.dataEnvio);
       return d && d>=inicioSemana && d<=fimSemana;
     });
-    const receitaIndicacao = pedidosIndicacaoMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
-    const receitaIndicacaoSemana = pedidosIndicacaoSemana.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+    const receitaMes = pedidosMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+    const receitaSemana = pedidosSemana.reduce((a,p)=>a+Number(p.valorPedido||0),0);
 
     return {
       total: ativas.length,
       totalGeral: visitas.filter(v=>v.status!=="cancelado").length,
       cancelados: visitasMes.filter(v=>v.status==="cancelado").length,
-      fechados: fechados.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoMes.length,
+      fechados: pedidosMes.length,
       pendentes: ativas.filter(v=>v.status==="orcamento_enviado").length,
       hoje: visitas.filter(v=>v.dataVisita===hoje&&v.status!=="cancelado").length,
-      receita: fechados.reduce((a,v)=>a+valorVisita(v,pedidosFabrica),0) + receitaIndicacao,
-      pedidosIndicacaoMes: pedidosIndicacaoMes.length,
-      conversao: ativas.length>0?(((fechados.reduce((a,v)=>a+contarNegocio(v),0)+pedidosIndicacaoMes.length)/ativas.length)*100).toFixed(0):0,
+      receita: receitaMes,
+      conversao: ativas.length>0?((pedidosMes.length/ativas.length)*100).toFixed(0):0,
       semana: {
-        receita: fechadosSemana.reduce((a,v)=>a+valorVisita(v,pedidosFabrica),0) + receitaIndicacaoSemana,
-        vendas: fechadosSemana.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoSemana.length,
+        receita: receitaSemana,
+        vendas: pedidosSemana.length,
         visitas: ativasSemana.length,
-        conversao: ativasSemana.length>0?Math.round((fechadosSemana.length+pedidosIndicacaoSemana.length)/ativasSemana.length*100):0,
+        conversao: ativasSemana.length>0?Math.round(pedidosSemana.length/ativasSemana.length*100):0,
         inicio: inicioSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
         fim: fimSemana.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),
       }
@@ -741,23 +705,15 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
 
   const comissao = useMemo(() => {
     const ativas = visitasMes.filter(v=>v.status!=="cancelado");
-    const fechados = ativas.filter(v => v.status === "fechado");
     const agora = new Date();
     const mesAtual = agora.getMonth(), anoAtual = agora.getFullYear();
-    const pedidosIndicacaoMes = (pedidosFabrica||[]).filter(p=>{
-      if(p.visita_id) {
-        const visitaVinculada = visitas.find(v=>String(v.id)===String(p.visita_id));
-        if(visitaVinculada && visitaVinculada.status==="fechado") return false;
-      }
-      const clienteNorm = normNome(p.cliente);
-      const temVisitaFechada = !p.visita_id && clienteNorm && visitas.some(v=>v.status==="fechado" && normNome(v.cliente)===clienteNorm);
-      if(temVisitaFechada) return false;
+    const pedidosMes = (pedidosFabrica||[]).filter(p=>{
       const d = parseData(p.dataEnvio);
       return d && d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
     });
-    const totalVendas = fechados.reduce((a, v) => a + valorVisita(v,pedidosFabrica), 0) + pedidosIndicacaoMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
+    const totalVendas = pedidosMes.reduce((a,p)=>a+Number(p.valorPedido||0),0);
     const totalVisitas = ativas.length;
-    const negociosFechados = fechados.reduce((a,v)=>a+contarNegocio(v),0) + pedidosIndicacaoMes.length;
+    const negociosFechados = pedidosMes.length;
     const conversao = totalVisitas > 0 ? (negociosFechados / totalVisitas) * 100 : 0;
 
     let pct = 10;
@@ -1072,8 +1028,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 {l:"TELEFONE",v:clienteInfo.telefone},
                 {l:"E-MAIL",v:clienteInfo.email},
                 {l:"ORIGEM",v:clienteInfo.origem,cor:"#c9a84c"},
-                {l:"CPF",v:clienteInfo.cpf},
-                {l:"DATA DE NASCIMENTO",v:clienteInfo.dataNascimento,icon:"🎂"},
+                clienteInfo.tipo_pessoa==="juridica" ? {l:"RAZÃO SOCIAL",v:clienteInfo.razao_social} : {l:"CPF",v:clienteInfo.cpf},
+                clienteInfo.tipo_pessoa==="juridica" ? {l:"CNPJ",v:clienteInfo.cnpj} : {l:"DATA DE NASCIMENTO",v:clienteInfo.data_nascimento,icon:"🎂"},
                 {l:"ENDEREÇO",v:clienteInfo.endereco},
                 {l:"CEP",v:clienteInfo.cep},
                 {l:"BAIRRO",v:clienteInfo.bairro},
@@ -1373,7 +1329,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
 
             <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 180px",gap:14,marginBottom:16}} className="graficos-grid">
               <div className="card" style={{padding:16}}><GraficoLinha visitas={visitas} pedidosFabrica={pedidosFabrica}/></div>
-              <div className="card" style={{padding:16}}><Funil visitas={visitasMes} pedidosIndicacaoMes={stats.pedidosIndicacaoMes}/></div>
+              <div className="card" style={{padding:16}}><Funil visitas={visitasMes} fechadosTotal={stats.fechados}/></div>
               <div className="card" style={{padding:16,display:"flex",alignItems:"center",justifyContent:"center"}}><MedidorMeta receita={stats.receita}/></div>
             </div>
 
@@ -3395,7 +3351,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 <div key={c.id} style={{padding:"13px 16px",borderBottom:"1px solid #1a1a24",cursor:"pointer"}} onClick={()=>{setSelectedCliente(c);setView("detalhe-cliente")}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      <div style={{fontSize:14,fontWeight:600}}>{c.nome}</div>
+                      <div style={{fontSize:14,fontWeight:600}}>{c.nome}{c.tipo_pessoa==="juridica" && <span style={{fontSize:10,color:"#8b5cf6",marginLeft:8,fontWeight:400}}>🏢 Jurídica</span>}</div>
                       <div style={{fontSize:11,color:"#555",marginTop:2}}>{c.telefone}{c.cidade?` · ${c.cidade}`:""}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
@@ -3418,7 +3374,7 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                 <div style={{fontFamily:"Georgia,serif",fontSize:20}}>{selectedCliente.nome}</div>
                 <div style={{fontSize:11,color:"#555"}}>{selectedCliente.telefone}</div>
               </div>
-              <button className="btn bg" onClick={()=>{setFormCliente({...selectedCliente, dataNascimento: selectedCliente.data_nascimento||""});setView("novo-cliente")}}>✎ Editar</button>
+              <button className="btn bg" onClick={()=>{setFormCliente({...selectedCliente, dataNascimento: selectedCliente.data_nascimento||"", razaoSocial: selectedCliente.razao_social||"", tipoPessoa: selectedCliente.tipo_pessoa||"fisica"});setView("novo-cliente")}}>✎ Editar</button>
               <button className="btn bd" onClick={()=>excluirCliente(selectedCliente.id)}>✕</button>
             </div>
             <div className="card" style={{padding:20,marginBottom:14}}>
@@ -3428,8 +3384,8 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   {label:"Telefone",value:selectedCliente.telefone,color:"#c9a84c"},
                   {label:"E-mail",value:selectedCliente.email},
                   {label:"Origem",value:selectedCliente.origem,color:"#8b5cf6"},
-                  {label:"CPF",value:selectedCliente.cpf},
-                  {label:"🎂 Data de Nascimento",value:selectedCliente.data_nascimento},
+                  selectedCliente.tipo_pessoa==="juridica" ? {label:"Razão Social",value:selectedCliente.razao_social} : {label:"CPF",value:selectedCliente.cpf},
+                  selectedCliente.tipo_pessoa==="juridica" ? {label:"CNPJ",value:selectedCliente.cnpj} : {label:"🎂 Data de Nascimento",value:selectedCliente.data_nascimento},
                   {label:"Endereço",value:selectedCliente.endereco},
                   {label:"CEP",value:selectedCliente.cep},
                   {label:"Bairro",value:selectedCliente.bairro},
@@ -3474,16 +3430,45 @@ Show proper installation with mounting rail at top. The blind/curtain should loo
                   </div>
                 ))}
 
-                {/* CPF */}
-                <div style={{marginBottom:12,gridColumn:"span 1"}}>
-                  <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>CPF</label>
-                  <input className="inp" placeholder="000.000.000-00" value={formCliente.cpf||""} onChange={e=>{
-                    let v=e.target.value.replace(/\D/g,"");
-                    if(v.length>11) v=v.slice(0,11);
-                    v=v.replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d{1,2})$/,"$1-$2");
-                    setFormCliente({...formCliente,cpf:v});
-                  }}/>
+                {/* Tipo de Pessoa */}
+                <div style={{marginBottom:12,gridColumn:"span 2"}}>
+                  <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Tipo de Cadastro</label>
+                  <div style={{display:"flex",gap:8}}>
+                    {[{v:"fisica",l:"👤 Pessoa Física"},{v:"juridica",l:"🏢 Pessoa Jurídica"}].map(op=>(
+                      <button key={op.v} onClick={()=>setFormCliente({...formCliente,tipoPessoa:op.v})} style={{flex:1,padding:"10px 8px",borderRadius:8,border:`1px solid ${(formCliente.tipoPessoa||"fisica")===op.v?"#c9a84c":"#2a2a3a"}`,background:(formCliente.tipoPessoa||"fisica")===op.v?"#c9a84c20":"transparent",color:(formCliente.tipoPessoa||"fisica")===op.v?"#c9a84c":"#777",fontSize:13,cursor:"pointer",transition:"all .15s"}}>{op.l}</button>
+                    ))}
+                  </div>
                 </div>
+
+                {(formCliente.tipoPessoa||"fisica")==="juridica" && (
+                  <div style={{marginBottom:12,gridColumn:"span 2"}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>Razão Social</label>
+                    <input className="inp" placeholder="Nome da empresa" value={formCliente.razaoSocial||""} onChange={e=>setFormCliente({...formCliente,razaoSocial:e.target.value})}/>
+                  </div>
+                )}
+
+                {/* CPF ou CNPJ conforme tipo */}
+                {(formCliente.tipoPessoa||"fisica")==="fisica" ? (
+                  <div style={{marginBottom:12,gridColumn:"span 1"}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>CPF</label>
+                    <input className="inp" placeholder="000.000.000-00" value={formCliente.cpf||""} onChange={e=>{
+                      let v=e.target.value.replace(/\D/g,"");
+                      if(v.length>11) v=v.slice(0,11);
+                      v=v.replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d{1,2})$/,"$1-$2");
+                      setFormCliente({...formCliente,cpf:v});
+                    }}/>
+                  </div>
+                ) : (
+                  <div style={{marginBottom:12,gridColumn:"span 1"}}>
+                    <label style={{fontSize:11,color:"#777",display:"block",marginBottom:5}}>CNPJ</label>
+                    <input className="inp" placeholder="00.000.000/0000-00" value={formCliente.cnpj||""} onChange={e=>{
+                      let v=e.target.value.replace(/\D/g,"");
+                      if(v.length>14) v=v.slice(0,14);
+                      v=v.replace(/(\d{2})(\d)/,"$1.$2").replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})(\d)/,"$1/$2").replace(/(\d{4})(\d{1,2})$/,"$1-$2");
+                      setFormCliente({...formCliente,cnpj:v});
+                    }}/>
+                  </div>
+                )}
 
                 {/* Data de Nascimento */}
                 <div style={{marginBottom:12,gridColumn:"span 1"}}>
